@@ -141,56 +141,77 @@
                     }
                 });
             });
-
+        
             if (players.length < 10) {
                 alert('Minimum 10 players required');
                 return;
             }
-
+        
             // Initialize stats
             players.forEach(player => {
                 allPositions.forEach(pos => player.stats.positions[pos] = 0);
                 player.stats.sit = 0;
                 player.stats.lastSatInning = -1;
             });
-
+        
             const innings = [];
+            const totalPlayers = players.length;
+            const sitsPerInning = totalPlayers - 10;
             
             for (let inningNum = 1; inningNum <= 6; inningNum++) {
-                const sitsPerInning = players.length - 10;
                 let sitting = [];
-                
-                // Select players to sit
-                let candidates = players
-                    .filter(p => p.stats.sit === Math.min(...players.map(p => p.stats.sit)))
-                    .sort((a, b) => a.stats.lastSatInning - b.stats.lastSatInning);
-                
-                sitting = shuffleArray(candidates).slice(0, sitsPerInning);
+                let cooldown = 1; // Start with 1 inning cooldown
+                let retries = 3;
+        
+                while (sitting.length < sitsPerInning && retries > 0) {
+                    // Get candidates who haven't sat recently
+                    const candidates = players
+                        .filter(p => !sitting.includes(p))
+                        .filter(p => p.stats.lastSatInning === -1 || 
+                                   inningNum - p.stats.lastSatInning > cooldown)
+                        .sort((a, b) => a.stats.sit - b.stats.sit);
+        
+                    const needed = sitsPerInning - sitting.length;
+                    const selected = shuffleArray(candidates).slice(0, needed);
+                    sitting.push(...selected);
+        
+                    if (sitting.length < sitsPerInning) {
+                        // Reduce cooldown if we can't find enough players
+                        cooldown = Math.max(0, cooldown - 1);
+                        retries--;
+                    }
+                }
+        
+                // Fallback to least-sat players if still needed
+                if (sitting.length < sitsPerInning) {
+                    const remaining = players
+                        .filter(p => !sitting.includes(p))
+                        .sort((a, b) => a.stats.sit - b.stats.sit);
+                    sitting.push(...remaining.slice(0, sitsPerInning - sitting.length));
+                }
+        
+                // Update sitting stats
                 sitting.forEach(p => {
                     p.stats.sit++;
                     p.stats.lastSatInning = inningNum;
                 });
-
-                // Assign positions
+        
+                // Position assignment logic remains the same
                 const assignments = {};
                 const playing = players.filter(p => !sitting.includes(p));
                 const shuffledPositions = shuffleArray([...allPositions]);
                 
                 shuffledPositions.forEach(pos => {
-                    // Find best candidate for position
                     const candidates = playing.filter(p => 
                         !Object.values(assignments).includes(p.name) &&
                         p.preferences.includes(pos)
-                    ).sort((a, b) => 
-                        a.stats.positions[pos] - b.stats.positions[pos]
-                    );
+                    ).sort((a, b) => a.stats.positions[pos] - b.stats.positions[pos]);
                     
                     if (candidates.length > 0) {
                         const player = candidates[0];
                         assignments[pos] = player.name;
                         player.stats.positions[pos]++;
                     } else {
-                        // Assign any available player
                         const available = playing.filter(p => 
                             !Object.values(assignments).includes(p.name)
                         );
@@ -201,14 +222,14 @@
                         }
                     }
                 });
-
+        
                 innings.push({
                     inning: inningNum,
                     sitting: sitting.map(p => p.name),
                     assignments: {...assignments}
                 });
             }
-
+        
             displayResults(innings);
         }
 
