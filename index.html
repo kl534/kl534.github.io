@@ -44,6 +44,11 @@
             padding: 5px 10px;
         }
 
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
         .results {
             background-color: white;
             padding: 20px;
@@ -91,11 +96,15 @@
     <div class="roster-input">
         <h2>Team Roster (Players 12-24)</h2>
         <div id="playerInputs"></div>
-        <button onclick="generateLineup()">Generate Lineup</button>
+        <div class="controls">
+            <button id="addPlayerBtn" onclick="addPlayer()">Add Player</button>
+            <button onclick="generateLineup()">Generate Lineup</button>
+        </div>
     </div>
 
     <div id="results" class="results" style="display: none;">
         <h2>Game Lineups</h2>
+        <button onclick="clearSavedData()" style="margin-bottom: 15px;">Clear Saved Data</button>
         <div id="inningsOutput"></div>
     </div>
 
@@ -103,25 +112,96 @@
         const allPositions = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'LCF', 'RCF', 'RF'];
         
         function initializePlayers() {
+            const savedData = localStorage.getItem('rosterData');
+            if (savedData) {
+                const players = JSON.parse(savedData);
+                renderPlayers(players);
+            } else {
+                createDefaultPlayers();
+            }
+            checkSavedLineup();
+            updateAddButtonState();
+        }
+
+        function createDefaultPlayers() {
             const container = document.getElementById('playerInputs');
             container.innerHTML = '';
-            
             for (let i = 0; i < 13; i++) {
-                const div = document.createElement('div');
-                div.className = 'player-input';
-                div.innerHTML = `
-                    <input type="text" value="${12 + i}" readonly>
-                    ${Array(3).fill().map((_, idx) => `
-                        <select>
-                            ${allPositions.map(pos => 
-                                `<option value="${pos}">${pos}</option>`
-                            ).join('')}
-                        </select>
-                    `).join('')}
-                    <button class="remove" onclick="this.parentElement.remove()">Remove</button>
-                `;
-                container.appendChild(div);
+                addPlayerElement(12 + i, ['P', 'C', '1B']);
             }
+        }
+
+        function addPlayerElement(number, prefs) {
+            const div = document.createElement('div');
+            div.className = 'player-input';
+            div.innerHTML = `
+                <input type="text" value="${number}" readonly>
+                ${Array(3).fill().map((_, idx) => `
+                    <select>
+                        ${allPositions.map(pos => `
+                            <option value="${pos}" ${pos === prefs[idx] ? 'selected' : ''}>${pos}</option>
+                        `).join('')}
+                    </select>
+                `).join('')}
+                <button class="remove" onclick="this.parentElement.remove(); saveRoster(); updateAddButtonState();">Remove</button>
+            `;
+            div.querySelectorAll('select').forEach(select => {
+                select.addEventListener('change', saveRoster);
+            });
+            document.getElementById('playerInputs').appendChild(div);
+        }
+
+        function addPlayer() {
+            const currentPlayers = document.querySelectorAll('.player-input');
+            if (currentPlayers.length >= 15) return;
+            
+            // Find highest current player number
+            const numbers = Array.from(currentPlayers).map(p => 
+                parseInt(p.querySelector('input').value)
+            );
+            const newNumber = numbers.length > 0 ? Math.max(...numbers) + 1 : 25;
+            
+            addPlayerElement(newNumber, ['P', 'C', '1B']);
+            saveRoster();
+            updateAddButtonState();
+        }
+
+        function updateAddButtonState() {
+            const currentCount = document.querySelectorAll('.player-input').length;
+            document.getElementById('addPlayerBtn').disabled = currentCount >= 15;
+        }
+
+        function renderPlayers(players) {
+            const container = document.getElementById('playerInputs');
+            container.innerHTML = '';
+            players.forEach(player => {
+                addPlayerElement(parseInt(player.name), player.preferences);
+            });
+        }
+
+        function saveRoster() {
+            const players = [];
+            document.querySelectorAll('.player-input').forEach(input => {
+                const name = input.children[0].value.trim();
+                const prefs = Array.from(input.querySelectorAll('select')).map(s => s.value);
+                players.push({ name, preferences: prefs });
+            });
+            localStorage.setItem('rosterData', JSON.stringify(players));
+        }
+
+        function checkSavedLineup() {
+            const savedLineup = localStorage.getItem('lastLineup');
+            if (savedLineup) {
+                const innings = JSON.parse(savedLineup);
+                displayResults(innings);
+                document.getElementById('results').style.display = 'block';
+            }
+        }
+
+        function clearSavedData() {
+            localStorage.removeItem('rosterData');
+            localStorage.removeItem('lastLineup');
+            location.reload();
         }
 
         function generateLineup() {
@@ -141,30 +221,29 @@
                     }
                 });
             });
-        
+
             if (players.length < 10) {
                 alert('Minimum 10 players required');
                 return;
             }
-        
+
             // Initialize stats
             players.forEach(player => {
                 allPositions.forEach(pos => player.stats.positions[pos] = 0);
                 player.stats.sit = 0;
                 player.stats.lastSatInning = -1;
             });
-        
+
             const innings = [];
             const totalPlayers = players.length;
             const sitsPerInning = totalPlayers - 10;
             
             for (let inningNum = 1; inningNum <= 6; inningNum++) {
                 let sitting = [];
-                let cooldown = 4; // Initial cooldown set to 4 innings
+                let cooldown = 4;
                 let retries = 3;
-        
+
                 while (sitting.length < sitsPerInning && retries > 0) {
-                    // Get candidates who haven't sat in the last 4 innings
                     const candidates = players
                         .filter(p => !sitting.includes(p))
                         .filter(p => {
@@ -173,33 +252,29 @@
                         })
                         .sort((a, b) => a.stats.sit - b.stats.sit || 
                                       a.stats.lastSatInning - b.stats.lastSatInning);
-        
+
                     const needed = sitsPerInning - sitting.length;
                     const selected = shuffleArray(candidates).slice(0, needed);
                     sitting.push(...selected);
-        
+
                     if (sitting.length < sitsPerInning) {
-                        // Reduce cooldown if we can't find enough players
                         cooldown = Math.max(0, cooldown - 1);
                         retries--;
                     }
                 }
-        
-                // Fallback to least-sat players if still needed
+
                 if (sitting.length < sitsPerInning) {
                     const remaining = players
                         .filter(p => !sitting.includes(p))
                         .sort((a, b) => a.stats.sit - b.stats.sit);
                     sitting.push(...remaining.slice(0, sitsPerInning - sitting.length));
                 }
-        
-                // Update sitting stats
+
                 sitting.forEach(p => {
                     p.stats.sit++;
                     p.stats.lastSatInning = inningNum;
                 });
-        
-                // Position assignment logic
+
                 const assignments = {};
                 const playing = players.filter(p => !sitting.includes(p));
                 const shuffledPositions = shuffleArray([...allPositions]);
@@ -225,14 +300,15 @@
                         }
                     }
                 });
-        
+
                 innings.push({
                     inning: inningNum,
                     sitting: sitting.map(p => p.name),
                     assignments: {...assignments}
                 });
             }
-        
+
+            localStorage.setItem('lastLineup', JSON.stringify(innings));
             displayResults(innings);
         }
 
@@ -274,6 +350,7 @@
             return array;
         }
 
+        // Initialize on load
         initializePlayers();
     </script>
 </body>
