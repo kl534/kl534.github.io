@@ -359,6 +359,7 @@
                 let cooldown = 4;
                 let retries = 3;
 
+                // Sitting selection logic
                 while (sitting.length < sitsPerInning && retries > 0) {
                     const candidates = players
                         .filter(p => !sitting.includes(p))
@@ -379,6 +380,7 @@
                     }
                 }
 
+                // Fallback sitting selection
                 if (sitting.length < sitsPerInning) {
                     const remaining = players
                         .filter(p => !sitting.includes(p))
@@ -386,6 +388,7 @@
                     sitting.push(...remaining.slice(0, sitsPerInning - sitting.length));
                 }
 
+                // Update sitting stats
                 sitting.forEach(p => {
                     p.stats.sit++;
                     p.stats.lastSatInning = inningNum;
@@ -395,32 +398,55 @@
                 const playing = players.filter(p => !sitting.includes(p));
                 const shuffledPositions = shuffleArray([...allPositions]);
 
+                // Preferred position assignment phase
                 shuffledPositions.forEach(pos => {
-                    const isInfield = infieldPositions.includes(pos);
-                    
-                    let candidates = playing.filter(p => {
-                        const hasPositionCap = p.stats.positionCounts[pos] >= 3;
-                        const playedLast = p.stats.lastPosition === pos;
-                        return !Object.values(assignments).includes(p.name) && !hasPositionCap;
-                    });
+                    const candidates = playing
+                        .filter(p => p.preferences.includes(pos))
+                        .sort((a, b) => {
+                            const aPrefIndex = a.preferences.indexOf(pos);
+                            const bPrefIndex = b.preferences.indexOf(pos);
+                            return aPrefIndex - bPrefIndex ||
+                                   a.stats.positionCounts[pos] - b.stats.positionCounts[pos] ||
+                                   (a.stats.lastPosition === pos ? 1 : 0) - (b.stats.lastPosition === pos ? 1 : 0);
+                        });
 
+                    if (candidates.length > 0) {
+                        const player = candidates.find(p => 
+                            !Object.values(assignments).includes(p.name) &&
+                            p.stats.positionCounts[pos] < 3 &&
+                            p.stats.lastPosition !== pos
+                        );
+
+                        if (player) {
+                            assignments[pos] = player.name;
+                            player.stats.positionCounts[pos]++;
+                            player.stats.lastPosition = pos;
+                            if (infieldPositions.includes(pos)) player.stats.infieldCount++;
+                            else player.stats.outfieldCount++;
+                        }
+                    }
+                });
+
+                // Remaining positions assignment phase
+                const remainingPositions = shuffledPositions.filter(pos => !assignments[pos]);
+                remainingPositions.forEach(pos => {
+                    const isInfield = infieldPositions.includes(pos);
+                    let candidates = playing.filter(p => 
+                        !Object.values(assignments).includes(p.name) &&
+                        p.stats.positionCounts[pos] < 3 &&
+                        p.stats.lastPosition !== pos
+                    );
+
+                    // Prioritize players needing infield/outfield experience
                     const needsInfield = candidates.filter(p => p.stats.infieldCount === 0 && isInfield);
                     const needsOutfield = candidates.filter(p => p.stats.outfieldCount === 0 && !isInfield);
-                    if (needsInfield.length > 0 && isInfield) candidates = needsInfield;
-                    if (needsOutfield.length > 0 && !isInfield) candidates = needsOutfield;
+                    if (needsInfield.length > 0) candidates = needsInfield;
+                    if (needsOutfield.length > 0) candidates = needsOutfield;
 
-                    candidates.sort((a, b) => {
-                        const aLastPenalty = a.stats.lastPosition === pos ? 100 : 0;
-                        const bLastPenalty = b.stats.lastPosition === pos ? 100 : 0;
-                        const aPrefScore = a.preferences.indexOf(pos);
-                        const bPrefScore = b.preferences.indexOf(pos);
-                        const aCount = a.stats.positionCounts[pos];
-                        const bCount = b.stats.positionCounts[pos];
-
-                        return (aPrefScore - bPrefScore) + 
-                               (aCount - bCount) + 
-                               (aLastPenalty - bLastPenalty);
-                    });
+                    candidates.sort((a, b) => 
+                        (a.preferences.includes(pos) ? 0 : 1) - (b.preferences.includes(pos) ? 0 : 1) ||
+                        a.stats.positionCounts[pos] - b.stats.positionCounts[pos]
+                    );
 
                     if (candidates.length > 0) {
                         const player = candidates[0];
@@ -432,6 +458,7 @@
                     }
                 });
 
+                // Final fallback assignment
                 shuffledPositions.forEach(pos => {
                     if (!assignments[pos]) {
                         const available = playing.filter(p => 
@@ -448,12 +475,13 @@
                     }
                 });
 
+                // Update player preferences for requirements
                 playing.forEach(player => {
                     if (player.stats.infieldCount === 0) {
-                        player.preferences.unshift(...infieldPositions);
+                        player.preferences = [...infieldPositions, ...player.preferences];
                     }
                     if (player.stats.outfieldCount === 0) {
-                        player.preferences.unshift(...outfieldPositions);
+                        player.preferences = [...outfieldPositions, ...player.preferences];
                     }
                 });
 
@@ -464,6 +492,7 @@
                 });
             }
 
+            // Validation checks
             let validationErrors = [];
             players.forEach(player => {
                 if (player.stats.infieldCount === 0 || player.stats.outfieldCount === 0) {
@@ -523,6 +552,7 @@
             return array;
         }
 
+        // Initialize on load
         initializePlayers();
     </script>
 </body>
