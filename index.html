@@ -131,44 +131,56 @@
                 return;
             }
 
-            // Initialize stats with lastSatInning
+            // Initialize stats with lastSatInning = -1 (never sat)
             players.forEach(player => {
                 ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'OF4'].forEach(pos => {
                     player.stats.positions[pos] = 0;
                 });
                 player.stats.sit = 0;
-                player.stats.lastSatInning = 0;
+                player.stats.lastSatInning = -1; // Initialize to never sat
             });
 
             const innings = [];
             
             // Generate 6 innings
             for (let inningNum = 1; inningNum <= 6; inningNum++) {
-                // Determine who sits with improved fairness
+                // Determine who sits with 4-inning cooldown
+                let sitting = [];
                 const minSit = Math.min(...players.map(p => p.stats.sit));
-                let candidates = players
-                    .filter(p => p.stats.sit === minSit)
-                    .sort((a, b) => a.stats.lastSatInning - b.stats.lastSatInning);
                 
-                candidates = shuffleArray(candidates);
-                let sitting = candidates.slice(0, 3);
+                // Get eligible players who can sit (respecting cooldown)
+                let eligiblePlayers = players.filter(p => 
+                    p.stats.sit === minSit &&
+                    (p.stats.lastSatInning === -1 || (p.stats.lastSatInning + 4 <= inningNum))
+                );
 
-                // If needed, get from next sit tier
+                // Sort by last sat (oldest first) and shuffle for fairness
+                eligiblePlayers.sort((a, b) => a.stats.lastSatInning - b.stats.lastSatInning);
+                eligiblePlayers = shuffleArray(eligiblePlayers);
+                sitting = eligiblePlayers.slice(0, 3);
+
+                // If needed, check next sit tier
                 if (sitting.length < 3) {
                     const needed = 3 - sitting.length;
                     const nextSit = minSit + 1;
-                    let nextCandidates = players
-                        .filter(p => p.stats.sit === nextSit && !sitting.includes(p))
-                        .sort((a, b) => a.stats.lastSatInning - b.stats.lastSatInning);
-                    nextCandidates = shuffleArray(nextCandidates);
-                    sitting.push(...nextCandidates.slice(0, needed));
+                    
+                    eligiblePlayers = players.filter(p => 
+                        p.stats.sit === nextSit &&
+                        (p.stats.lastSatInning === -1 || (p.stats.lastSatInning + 4 <= inningNum)) &&
+                        !sitting.includes(p)
+                    );
+                    
+                    eligiblePlayers.sort((a, b) => a.stats.lastSatInning - b.stats.lastSatInning);
+                    eligiblePlayers = shuffleArray(eligiblePlayers);
+                    sitting.push(...eligiblePlayers.slice(0, needed));
                 }
 
-                // Final fallback (shouldn't trigger with 13 players)
+                // Final fallback (shouldn't be needed with 13 players)
                 if (sitting.length < 3) {
                     const needed = 3 - sitting.length;
                     const remaining = players
-                        .filter(p => !sitting.includes(p))
+                        .filter(p => !sitting.includes(p) &&
+                            (p.stats.lastSatInning === -1 || (p.stats.lastSatInning + 4 <= inningNum)))
                         .sort((a, b) => a.stats.sit - b.stats.sit);
                     sitting.push(...remaining.slice(0, needed));
                 }
