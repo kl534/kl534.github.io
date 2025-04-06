@@ -387,8 +387,42 @@ function generateLineup() {
     const outfieldPositions = ['LF', 'LCF', 'RCF', 'RF'];
 
     for (let inningNum = 1; inningNum <= 6; inningNum++) {
-        // Sitting logic remains the same...
+                        let sitting = [];
+                let cooldown = 4;
+                let retries = 3;
 
+                while (sitting.length < sitsPerInning && retries > 0) {
+                    const candidates = players
+                        .filter(p => !sitting.includes(p))
+                        .filter(p => {
+                            const inningsSinceLastSit = inningNum - p.stats.lastSatInning;
+                            return p.stats.lastSatInning === -1 || inningsSinceLastSit > cooldown;
+                        })
+                        .sort((a, b) => a.stats.sit - b.stats.sit || 
+                                      a.stats.lastSatInning - b.stats.lastSatInning);
+
+                    const needed = sitsPerInning - sitting.length;
+                    const selected = shuffleArray(candidates).slice(0, needed);
+                    sitting.push(...selected);
+
+                    if (sitting.length < sitsPerInning) {
+                        cooldown = Math.max(0, cooldown - 1);
+                        retries--;
+                    }
+                }
+
+                if (sitting.length < sitsPerInning) {
+                    const remaining = players
+                        .filter(p => !sitting.includes(p))
+                        .sort((a, b) => a.stats.sit - b.stats.sit);
+                    sitting.push(...remaining.slice(0, sitsPerInning - sitting.length));
+                }
+
+                sitting.forEach(p => {
+                    p.stats.sit++;
+                    p.stats.lastSatInning = inningNum;
+                });
+ 
         // Position assignment logic
         const assignments = {};
         const playing = players.filter(p => !sitting.includes(p));
