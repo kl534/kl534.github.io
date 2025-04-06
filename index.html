@@ -69,6 +69,7 @@
             display: grid;
             gap: 8px;
             grid-template-columns: 1.5fr repeat(3, 1fr) auto;
+            align-items: center;
         }
 
         .player-input input {
@@ -76,6 +77,7 @@
             border: 1px solid #ddd;
             border-radius: 6px;
             font-size: 14px;
+            max-width: 120px;
         }
 
         select {
@@ -144,67 +146,67 @@
             color: #666;
         }
 
-        h2, h3 {
-            color: var(--primary-color);
-            margin: 0 0 15px 0;
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+                font-size: 14px;
+            }
+
+            .player-input {
+                grid-template-columns: minmax(120px, 1.5fr) repeat(3, minmax(60px, 1fr)) auto;
+                gap: 6px;
+            }
+
+            .player-input input,
+            .player-input select {
+                font-size: 12px;
+                padding: 6px;
+                min-width: 0;
+            }
+
+            button {
+                padding: 8px 10px;
+                font-size: 13px;
+            }
+
+            button.remove {
+                padding: 4px 8px;
+                min-width: 28px;
+            }
+
+            .position-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
         }
-        
-        .controls {
-            margin-top: 20px;
-            display: flex;
+
+                .position-counts {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
             gap: 10px;
-        }
-        
-    @media (max-width: 600px) {
-        body {
-            padding: 10px;
-            font-size: 14px;
+            margin-top: 15px;
+            padding: 15px;
+            background-color: var(--background-color);
+            border-radius: 8px;
         }
 
-        .player-input {
-            grid-template-columns: minmax(120px, 1.5fr) repeat(3, minmax(60px, 1fr)) auto;
-            gap: 6px;
+        .position-count-item {
+            text-align: center;
+            padding: 8px;
+            background-color: var(--card-background);
+            border-radius: 4px;
+            border: 1px solid #eee;
         }
 
-        .player-input input,
-        .player-input select {
-            font-size: 12px;
-            padding: 6px;
-            min-width: 0; /* Allows fields to shrink */
+        .count-label {
+            font-size: 0.9em;
+            color: #666;
         }
 
-        button {
-            padding: 8px 10px;
-            font-size: 13px;
+        .count-number {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: var(--primary-color);
         }
-
-        button.remove {
-            padding: 4px 8px;
-            min-width: 28px;
-        }
-
-        .position-grid {
-            grid-template-columns: repeat(3, 1fr);
-        }
-
-        /* Force single line for player names */
-        .player-input input {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-    }
-
-    /* Add horizontal scroll for very small screens */
-    @media (max-width: 400px) {
-        .roster-input {
-            overflow-x: auto;
-        }
-        
-        .player-input {
-            min-width: 340px; /* Minimum width to prevent crushing */
-        }
-    }
     </style>
 </head>
 <body>
@@ -214,6 +216,7 @@
         </div>
         <div class="roster-setup" id="rosterSetup">
             <div id="playerInputs"></div>
+            <div id="positionCounts"></div>
             <div class="controls">
                 <button id="addPlayerBtn" onclick="addPlayer()">Add Player</button>
             </div>
@@ -224,7 +227,6 @@
         <button onclick="generateLineup()">Generate Lineup</button>
     </div>
 
-
     <div id="results" class="results" style="display: none;">
         <h2>Game Lineups</h2>
         <div id="inningsOutput"></div>
@@ -232,7 +234,45 @@
 
     <script>
         const allPositions = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'LCF', 'RCF', 'RF'];
+        const infieldPositions = ['P', 'C', '1B', '2B', '3B', 'SS'];
+        const outfieldPositions = ['LF', 'LCF', 'RCF', 'RF'];
+
+        function updatePositionCounts() {
+            const positionMap = {};
+            allPositions.forEach(pos => positionMap[pos] = 0);
+
+            document.querySelectorAll('.player-input').forEach(input => {
+                Array.from(input.querySelectorAll('select')).forEach(select => {
+                    positionMap[select.value]++;
+                });
+            });
+
+            const countsHTML = allPositions.map(pos => `
+                <div class="position-count-item">
+                    <div class="count-label">${pos}</div>
+                    <div class="count-number">${positionMap[pos]}</div>
+                </div>
+            `).join('');
+
+            document.getElementById('positionCounts').innerHTML = `
+                <div class="position-counts">${countsHTML}</div>
+            `;
+        }
         
+        function toggleRoster() {
+            const header = document.querySelector('.roster-header');
+            const setup = document.getElementById('rosterSetup');
+            header.classList.toggle('collapsed');
+            setup.classList.toggle('collapsed');
+        }
+
+        function collapseRoster() {
+            const header = document.querySelector('.roster-header');
+            const setup = document.getElementById('rosterSetup');
+            header.classList.add('collapsed');
+            setup.classList.add('collapsed');
+        }
+
         function initializePlayers() {
             try {
                 const savedData = localStorage.getItem('rosterData');
@@ -247,9 +287,6 @@
                 createDefaultPlayers();
             }
             updateAddButtonState();
-
-            document.querySelector('.roster-header').classList.remove('collapsed');
-            document.getElementById('rosterSetup').classList.remove('collapsed');
         }
 
         function createDefaultPlayers() {
@@ -310,6 +347,7 @@
                 players.push({ name, preferences: prefs });
             });
             localStorage.setItem('rosterData', JSON.stringify(players));
+            updatePositionCounts();
         }
 
         function checkSavedLineup() {
@@ -325,20 +363,6 @@
             }
         }
 
-        function toggleRoster() {
-            const header = document.querySelector('.roster-header');
-            const setup = document.getElementById('rosterSetup');
-            header.classList.toggle('collapsed');
-            setup.classList.toggle('collapsed');
-        }
-
-        function collapseRoster() {
-            const header = document.querySelector('.roster-header');
-            const setup = document.getElementById('rosterSetup');
-            header.classList.add('collapsed');
-            setup.classList.add('collapsed');
-        }
-        
         function generateLineup() {
             const players = [];
             const inputs = document.querySelectorAll('.player-input');
@@ -352,6 +376,10 @@
                         preferences: prefs,
                         stats: {
                             positions: {},
+                            positionCounts: {},
+                            lastPosition: null,
+                            infieldCount: 0,
+                            outfieldCount: 0,
                             sit: 0,
                             lastSatInning: -1
                         }
@@ -365,7 +393,12 @@
             }
 
             players.forEach(player => {
-                allPositions.forEach(pos => player.stats.positions[pos] = 0);
+                allPositions.forEach(pos => {
+                    player.stats.positions[pos] = 0;
+                    player.stats.positionCounts[pos] = 0;
+                });
+                player.stats.infieldCount = 0;
+                player.stats.outfieldCount = 0;
                 player.stats.sit = 0;
                 player.stats.lastSatInning = -1;
             });
@@ -379,6 +412,7 @@
                 let cooldown = 4;
                 let retries = 3;
 
+                // Sitting selection logic
                 while (sitting.length < sitsPerInning && retries > 0) {
                     const candidates = players
                         .filter(p => !sitting.includes(p))
@@ -399,6 +433,7 @@
                     }
                 }
 
+                // Fallback sitting selection
                 if (sitting.length < sitsPerInning) {
                     const remaining = players
                         .filter(p => !sitting.includes(p))
@@ -406,6 +441,7 @@
                     sitting.push(...remaining.slice(0, sitsPerInning - sitting.length));
                 }
 
+                // Update sitting stats
                 sitting.forEach(p => {
                     p.stats.sit++;
                     p.stats.lastSatInning = inningNum;
@@ -414,26 +450,66 @@
                 const assignments = {};
                 const playing = players.filter(p => !sitting.includes(p));
                 const shuffledPositions = shuffleArray([...allPositions]);
-                
+
+                // Preferred position assignment phase
                 shuffledPositions.forEach(pos => {
-                    const candidates = playing.filter(p => 
+                    const isInfield = infieldPositions.includes(pos);
+                    let candidates = playing.filter(p => 
                         !Object.values(assignments).includes(p.name) &&
-                        p.preferences.includes(pos)
-                    ).sort((a, b) => a.stats.positions[pos] - b.stats.positions[pos]);
-                    
+                        p.stats.positionCounts[pos] < 3
+                    );
+
+                    // Balance infield/outfield time
+                    candidates.sort((a, b) => {
+                        const aBalance = Math.abs(a.stats.infieldCount - a.stats.outfieldCount);
+                        const bBalance = Math.abs(b.stats.infieldCount - b.stats.outfieldCount);
+                        return aBalance - bBalance;
+                    });
+
+                    // Prioritize preferences
+                    candidates.sort((a, b) => {
+                        const aPref = a.preferences.includes(pos) ? 0 : 1;
+                        const bPref = b.preferences.includes(pos) ? 0 : 1;
+                        return aPref - bPref;
+                    });
+
+                    // Consider position count
+                    candidates.sort((a, b) => 
+                        a.stats.positionCounts[pos] - b.stats.positionCounts[pos]
+                    );
+
                     if (candidates.length > 0) {
                         const player = candidates[0];
                         assignments[pos] = player.name;
-                        player.stats.positions[pos]++;
-                    } else {
+                        player.stats.positionCounts[pos]++;
+                        if (isInfield) player.stats.infieldCount++;
+                        else player.stats.outfieldCount++;
+                    }
+                });
+
+                // Fallback for unassigned positions
+                shuffledPositions.forEach(pos => {
+                    if (!assignments[pos]) {
                         const available = playing.filter(p => 
                             !Object.values(assignments).includes(p.name)
                         );
                         if (available.length > 0) {
                             const player = available[0];
                             assignments[pos] = player.name;
-                            player.stats.positions[pos]++;
+                            player.stats.positionCounts[pos]++;
+                            if (infieldPositions.includes(pos)) player.stats.infieldCount++;
+                            else player.stats.outfieldCount++;
                         }
+                    }
+                });
+
+                // Update player preferences for requirements
+                playing.forEach(player => {
+                    if (player.stats.infieldCount === 0) {
+                        player.preferences = [...infieldPositions, ...player.preferences];
+                    }
+                    if (player.stats.outfieldCount === 0) {
+                        player.preferences = [...outfieldPositions, ...player.preferences];
                     }
                 });
 
@@ -444,8 +520,21 @@
                 });
             }
 
-            collapseRoster();
+            // Validation checks
+            let validationErrors = [];
+            players.forEach(player => {
+                const totalInnings = 6 - player.stats.sit;
+                const infieldRatio = player.stats.infieldCount / totalInnings;
+                if (infieldRatio < 0.25 || infieldRatio > 0.75) {
+                    validationErrors.push(`${player.name} has uneven IF/OF time (${player.stats.infieldCount} IF / ${player.stats.outfieldCount} OF)`);
+                }
+            });
 
+            if (validationErrors.length > 0) {
+                alert('Lineup issues:\n\n' + validationErrors.join('\n'));
+            }
+
+            collapseRoster();
             localStorage.setItem('lastLineup', JSON.stringify(innings));
             displayResults(innings);
         }
@@ -490,6 +579,7 @@
 
         // Initialize on load
         initializePlayers();
+        updatePositionCounts();
     </script>
 </body>
 </html>
