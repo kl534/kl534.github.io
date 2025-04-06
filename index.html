@@ -160,16 +160,19 @@
             
             for (let inningNum = 1; inningNum <= 6; inningNum++) {
                 let sitting = [];
-                let cooldown = 4; // Start with 4 inning cooldown
+                let cooldown = 4; // Initial cooldown set to 4 innings
                 let retries = 3;
         
                 while (sitting.length < sitsPerInning && retries > 0) {
-                    // Get candidates who haven't sat recently
+                    // Get candidates who haven't sat in the last 4 innings
                     const candidates = players
                         .filter(p => !sitting.includes(p))
-                        .filter(p => p.stats.lastSatInning === -1 || 
-                                   inningNum - p.stats.lastSatInning > cooldown)
-                        .sort((a, b) => a.stats.sit - b.stats.sit);
+                        .filter(p => {
+                            const inningsSinceLastSit = inningNum - p.stats.lastSatInning;
+                            return p.stats.lastSatInning === -1 || inningsSinceLastSit > cooldown;
+                        })
+                        .sort((a, b) => a.stats.sit - b.stats.sit || 
+                                      a.stats.lastSatInning - b.stats.lastSatInning);
         
                     const needed = sitsPerInning - sitting.length;
                     const selected = shuffleArray(candidates).slice(0, needed);
@@ -196,7 +199,7 @@
                     p.stats.lastSatInning = inningNum;
                 });
         
-                // Position assignment logic remains the same
+                // Position assignment logic
                 const assignments = {};
                 const playing = players.filter(p => !sitting.includes(p));
                 const shuffledPositions = shuffleArray([...allPositions]);
