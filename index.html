@@ -492,17 +492,19 @@
                         (p.stats.sitCount < 2 || p.stats.usedOutfields < 1 || !isInfield)
                     );
         
-                    // Sort candidates by: 
-                    // 1. Most infield grab bag items
-                    // 2. Fewest total remaining grab bag items
+                    // New priority sorting
                     candidates.sort((a, b) => {
+                        // First priority: Most instances of this position in grab bag
+                        const aPosCount = a.grabBag.filter(p => p === pos).length;
+                        const bPosCount = b.grabBag.filter(p => p === pos).length;
+                        if (bPosCount !== aPosCount) return bPosCount - aPosCount;
+        
+                        // Second priority: Most infield positions remaining
                         const aInfieldCount = a.grabBag.filter(p => infieldPositions.includes(p)).length;
                         const bInfieldCount = b.grabBag.filter(p => infieldPositions.includes(p)).length;
-                        
-                        // Descending order for infield count
-                        if(bInfieldCount !== aInfieldCount) return bInfieldCount - aInfieldCount;
-                        
-                        // Ascending order for total remaining
+                        if (bInfieldCount !== aInfieldCount) return bInfieldCount - aInfieldCount;
+        
+                        // Third priority: Fewest total remaining positions
                         return a.grabBag.length - b.grabBag.length;
                     });
         
@@ -518,9 +520,10 @@
                         const player = validCandidates[0];
                         assignments[pos] = player.name;
                         
-                        // Update grab bag
-                        if(player.grabBag.includes(pos)) {
-                            player.grabBag = player.grabBag.filter(p => p !== pos);
+                        // Update grab bag - remove first instance of this position
+                        const posIndex = player.grabBag.indexOf(pos);
+                        if(posIndex > -1) {
+                            player.grabBag.splice(posIndex, 1);
                         }
                         
                         // Update stats
