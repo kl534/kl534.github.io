@@ -339,55 +339,43 @@
             setup.classList.add('collapsed');
         }
         
-function generateLineup() {
-    const players = [];
-    const inputs = document.querySelectorAll('.player-input');
-    
-    inputs.forEach(input => {
-        const name = input.children[0].value.trim();
-        const prefs = Array.from(input.querySelectorAll('select')).map(s => s.value);
-        if (name) {
-            players.push({
-                name,
-                preferences: prefs,
-                stats: {
-                    positions: {},
-                    positionCounts: {},
-                    lastPosition: null,
-                    infieldCount: 0,
-                    outfieldCount: 0,
-                    sit: 0,
-                    lastSatInning: -1
+        function generateLineup() {
+            const players = [];
+            const inputs = document.querySelectorAll('.player-input');
+            
+            inputs.forEach(input => {
+                const name = input.children[0].value.trim();
+                const prefs = Array.from(input.querySelectorAll('select')).map(s => s.value);
+                if (name) {
+                    players.push({
+                        name,
+                        preferences: prefs,
+                        stats: {
+                            positions: {},
+                            sit: 0,
+                            lastSatInning: -1
+                        }
+                    });
                 }
             });
-        }
-    });
 
-    if (players.length < 10) {
-        alert('Minimum 10 players required');
-        return;
-    }
+            if (players.length < 10) {
+                alert('Minimum 10 players required');
+                return;
+            }
 
-    // Initialize stats
-    players.forEach(player => {
-        allPositions.forEach(pos => {
-            player.stats.positions[pos] = 0;
-            player.stats.positionCounts[pos] = 0;
-        });
-        player.stats.infieldCount = 0;
-        player.stats.outfieldCount = 0;
-        player.stats.sit = 0;
-        player.stats.lastSatInning = -1;
-    });
+            players.forEach(player => {
+                allPositions.forEach(pos => player.stats.positions[pos] = 0);
+                player.stats.sit = 0;
+                player.stats.lastSatInning = -1;
+            });
 
-    const innings = [];
-    const totalPlayers = players.length;
-    const sitsPerInning = totalPlayers - 10;
-    const infieldPositions = ['P', 'C', '1B', '2B', '3B', 'SS'];
-    const outfieldPositions = ['LF', 'LCF', 'RCF', 'RF'];
-
-    for (let inningNum = 1; inningNum <= 6; inningNum++) {
-                        let sitting = [];
+            const innings = [];
+            const totalPlayers = players.length;
+            const sitsPerInning = totalPlayers - 10;
+            
+            for (let inningNum = 1; inningNum <= 6; inningNum++) {
+                let sitting = [];
                 let cooldown = 4;
                 let retries = 3;
 
@@ -422,107 +410,75 @@ function generateLineup() {
                     p.stats.sit++;
                     p.stats.lastSatInning = inningNum;
                 });
- 
-        // Position assignment logic
-        const assignments = {};
-        const playing = players.filter(p => !sitting.includes(p));
-        const shuffledPositions = shuffleArray([...allPositions]);
 
-        shuffledPositions.forEach(pos => {
-            const isInfield = infieldPositions.includes(pos);
-            
-            // Filter candidates with position cap check
-            let candidates = playing.filter(p => {
-                const hasPositionCap = p.stats.positionCounts[pos] >= 3;
-                const playedLast = p.stats.lastPosition === pos;
-                return !Object.values(assignments).includes(p.name) && !hasPositionCap;
-            });
-
-            // Prioritize players needing infield/outfield experience
-            const needsInfield = candidates.filter(p => p.stats.infieldCount === 0 && isInfield);
-            const needsOutfield = candidates.filter(p => p.stats.outfieldCount === 0 && !isInfield);
-            if (needsInfield.length > 0 && isInfield) candidates = needsInfield;
-            if (needsOutfield.length > 0 && !isInfield) candidates = needsOutfield;
-
-            // Sort by preference and position history
-            candidates.sort((a, b) => {
-                // Penalize players who played this position last
-                const aLastPenalty = a.stats.lastPosition === pos ? 100 : 0;
-                const bLastPenalty = b.stats.lastPosition === pos ? 100 : 0;
+                const assignments = {};
+                const playing = players.filter(p => !sitting.includes(p));
+                const shuffledPositions = shuffleArray([...allPositions]);
                 
-                // Prioritize preferences
-                const aPrefScore = a.preferences.indexOf(pos);
-                const bPrefScore = b.preferences.indexOf(pos);
-                
-                // Consider position count
-                const aCount = a.stats.positionCounts[pos];
-                const bCount = b.stats.positionCounts[pos];
+                shuffledPositions.forEach(pos => {
+                    const candidates = playing.filter(p => 
+                        !Object.values(assignments).includes(p.name) &&
+                        p.preferences.includes(pos)
+                    ).sort((a, b) => a.stats.positions[pos] - b.stats.positions[pos]);
+                    
+                    if (candidates.length > 0) {
+                        const player = candidates[0];
+                        assignments[pos] = player.name;
+                        player.stats.positions[pos]++;
+                    } else {
+                        const available = playing.filter(p => 
+                            !Object.values(assignments).includes(p.name)
+                        );
+                        if (available.length > 0) {
+                            const player = available[0];
+                            assignments[pos] = player.name;
+                            player.stats.positions[pos]++;
+                        }
+                    }
+                });
 
-                return (aPrefScore - bPrefScore) + 
-                       (aCount - bCount) + 
-                       (aLastPenalty - bLastPenalty);
-            });
-
-            if (candidates.length > 0) {
-                const player = candidates[0];
-                assignments[pos] = player.name;
-                player.stats.positionCounts[pos]++;
-                player.stats.lastPosition = pos;
-                if (isInfield) player.stats.infieldCount++;
-                else player.stats.outfieldCount++;
+                innings.push({
+                    inning: inningNum,
+                    sitting: sitting.map(p => p.name),
+                    assignments: {...assignments}
+                });
             }
-        });
 
-        // Fallback for unassigned positions
-        shuffledPositions.forEach(pos => {
-            if (!assignments[pos]) {
-                const available = playing.filter(p => 
-                    !Object.values(assignments).includes(p.name)
-                if (available.length > 0) {
-                    const player = available[0];
-                    assignments[pos] = player.name;
-                    player.stats.positionCounts[pos]++;
-                    player.stats.lastPosition = pos;
-                    if (infieldPositions.includes(pos)) player.stats.infieldCount++;
-                    else player.stats.outfieldCount++;
-                }
-            }
-        });
+            collapseRoster();
 
-        // Post-assignment validation
-        playing.forEach(player => {
-            if (player.stats.infieldCount === 0) {
-                // Force infield position in next inning
-                player.preferences.unshift(...infieldPositions);
-            }
-            if (player.stats.outfieldCount === 0) {
-                // Force outfield position in next inning
-                player.preferences.unshift(...outfieldPositions);
-            }
-        });
-
-        innings.push({
-            inning: inningNum,
-            sitting: sitting.map(p => p.name),
-            assignments: {...assignments}
-        });
-    }
-
-    // Final validation
-    players.forEach(player => {
-        if (player.stats.infieldCount === 0 || player.stats.outfieldCount === 0) {
-            alert(`Warning: ${player.name} didn't play both infield and outfield!`);
+            localStorage.setItem('lastLineup', JSON.stringify(innings));
+            displayResults(innings);
         }
-        Object.entries(player.stats.positionCounts).forEach(([pos, count]) => {
-            if (count > 3) {
-                alert(`Warning: ${player.name} played ${pos} ${count} times!`);
-            }
-        });
-    });
 
-    localStorage.setItem('lastLineup', JSON.stringify(innings));
-    displayResults(innings);
-}
+        function displayResults(innings) {
+            const output = document.getElementById('inningsOutput');
+            output.innerHTML = '';
+            
+            innings.forEach(inning => {
+                const inningDiv = document.createElement('div');
+                inningDiv.className = 'inning';
+                
+                const positionsHTML = allPositions.map(pos => `
+                    <div class="position-item">
+                        <span class="position-label">${pos}:</span>
+                        ${inning.assignments[pos] || '---'}
+                    </div>
+                `).join('');
+
+                inningDiv.innerHTML = `
+                    <h3>Inning ${inning.inning}</h3>
+                    <div class="position-grid">
+                        ${positionsHTML}
+                    </div>
+                    <div class="sitting-out">
+                        <strong>Sitting Out:</strong> ${inning.sitting.join(', ') || 'None'}
+                    </div>
+                `;
+                output.appendChild(inningDiv);
+            });
+
+            document.getElementById('results').style.display = 'block';
+        }
 
         function shuffleArray(array) {
             for (let i = array.length - 1; i > 0; i--) {
