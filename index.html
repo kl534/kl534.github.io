@@ -504,8 +504,8 @@
                         const bInfieldCount = b.grabBag.filter(p => infieldPositions.includes(p)).length;
                         if (bInfieldCount !== aInfieldCount) return bInfieldCount - aInfieldCount;
         
-                        // Third priority: Fewest total remaining positions
-                        return a.grabBag.length - b.grabBag.length;
+                        // Third priority: Most total remaining positions
+                        return b.grabBag.length - a.grabBag.length;
                     });
         
                     // Try preferred positions first
@@ -630,9 +630,9 @@
                                     ${pos} ×${count}
                                 </div>
                             `).join('')}
-                        ${player.stats.sit > 0 ? `
+                        ${player.stats.sitCount > 0 ? `
                             <div class="position-pill" style="background-color: #e74c3c;">
-                                Sat ×${player.stats.sit}
+                                Sitting ×${player.stats.sitCount}
                             </div>
                         ` : ''}
                     </div>
