@@ -207,6 +207,43 @@
             font-weight: bold;
             color: var(--primary-color);
         }
+
+        .player-summary {
+            background-color: var(--background-color);
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .player-summary-item {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 10px;
+            padding: 10px;
+            background-color: var(--card-background);
+            margin-bottom: 10px;
+            border-radius: 6px;
+            border: 1px solid #eee;
+        }
+
+        .player-summary-name {
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .player-summary-positions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        .position-pill {
+            background-color: var(--secondary-color);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.9em;
+        }
     </style>
 </head>
 <body>
@@ -230,6 +267,10 @@
     <div id="results" class="results" style="display: none;">
         <h2>Game Lineups</h2>
         <div id="inningsOutput"></div>
+        <div class="player-summary">
+            <h3>Player Position Summary</h3>
+            <div id="playerSummary"></div>
+        </div>
     </div>
 
     <script>
@@ -451,39 +492,63 @@
                 const playing = players.filter(p => !sitting.includes(p));
                 const shuffledPositions = shuffleArray([...allPositions]);
 
-                // Preferred position assignment phase
-                shuffledPositions.forEach(pos => {
-                    const isInfield = infieldPositions.includes(pos);
-                    let candidates = playing.filter(p => 
-                        !Object.values(assignments).includes(p.name) &&
-                        p.stats.positionCounts[pos] < 3
-                    );
+                // Assign infield positions first with strict preferences
+                const infieldToAssign = shuffleArray([...infieldPositions]);
+                
+                infieldToAssign.forEach(pos => {
+                    // Get players with this position in their preferences
+                    let candidates = playing
+                        .filter(p => p.preferences.includes(pos))
+                        .sort((a, b) => 
+                            a.stats.positionCounts[pos] - b.stats.positionCounts[pos]
+                        );
 
-                    // Balance infield/outfield time
-                    candidates.sort((a, b) => {
-                        const aBalance = Math.abs(a.stats.infieldCount - a.stats.outfieldCount);
-                        const bBalance = Math.abs(b.stats.infieldCount - b.stats.outfieldCount);
-                        return aBalance - bBalance;
-                    });
-
-                    // Prioritize preferences
-                    candidates.sort((a, b) => {
-                        const aPref = a.preferences.includes(pos) ? 0 : 1;
-                        const bPref = b.preferences.includes(pos) ? 0 : 1;
-                        return aPref - bPref;
-                    });
-
-                    // Consider position count
-                    candidates.sort((a, b) => 
-                        a.stats.positionCounts[pos] - b.stats.positionCounts[pos]
-                    );
+                    // Remove players already assigned
+                    candidates = candidates.filter(p => !Object.values(assignments).includes(p.name));
 
                     if (candidates.length > 0) {
                         const player = candidates[0];
                         assignments[pos] = player.name;
-                        player.stats.positionCounts[pos]++;
-                        if (isInfield) player.stats.infieldCount++;
-                        else player.stats.outfieldCount++;
+                        player.stats.positions[pos] = (player.stats.positions[pos] || 0) + 1;
+                        player.stats.positionHistory.push(pos);
+                        if (infieldPositions.includes(pos)) player.stats.infieldCount++;
+                    }
+                });
+
+                // Assign remaining infield positions to available players
+                infieldToAssign.forEach(pos => {
+                    if (!assignments[pos]) {
+                        const available = playing.filter(p => 
+                            !Object.values(assignments).includes(p.name) &&
+                            p.preferences.some(p => infieldPositions.includes(p))
+                        );
+                        if (available.length > 0) {
+                            const player = available[0];
+                            assignments[pos] = player.name;
+                            player.stats.positions[pos] = (player.stats.positions[pos] || 0) + 1;
+                            player.stats.positionHistory.push(pos);
+                            player.stats.infieldCount++;
+                        }
+                    }
+                });
+
+                // Assign outfield positions with preference priority
+                const outfieldToAssign = shuffleArray([...outfieldPositions]);
+                outfieldToAssign.forEach(pos => {
+                    let candidates = playing
+                        .filter(p => !Object.values(assignments).includes(p.name))
+                        .sort((a, b) => 
+                            (a.preferences.includes(pos) ? 0 : 1) - 
+                            (b.preferences.includes(pos) ? 0 : 1) ||
+                            a.stats.positionCounts[pos] - b.stats.positionCounts[pos]
+                        );
+
+                    if (candidates.length > 0) {
+                        const player = candidates[0];
+                        assignments[pos] = player.name;
+                        player.stats.positions[pos] = (player.stats.positions[pos] || 0) + 1;
+                        player.stats.positionHistory.push(pos);
+                        player.stats.outfieldCount++;
                     }
                 });
 
