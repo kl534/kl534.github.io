@@ -24,8 +24,9 @@
         .player-input {
             margin: 10px 0;
             display: grid;
-            grid-template-columns: 4fr 1fr 1fr 1fr;
+            grid-template-columns: 2fr repeat(3, 1fr) auto;
             gap: 10px;
+            align-items: center;
         }
 
         button {
@@ -38,8 +39,9 @@
             font-size: 16px;
         }
 
-        button:hover {
-            background-color: #45a049;
+        button.remove {
+            background-color: #ff4444;
+            padding: 5px 10px;
         }
 
         .results {
@@ -49,24 +51,6 @@
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
         }
 
-        .positions {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-        }
-
-        select {
-            padding: 5px;
-            border-radius: 3px;
-            border: 1px solid #ddd;
-        }
-        
-        .player-input button.remove {
-            background-color: #ff4444;
-            padding: 5px 10px;
-            margin-left: 10px;
-        }
-                
         .inning {
             background-color: white;
             border-radius: 8px;
@@ -75,36 +59,23 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
-        .position-group {
-            background-color: #f8f8f8;            
-            margin: 10px 0;
-            padding: 15px;
-            border-radius: 6px;
-        }
-
-        .infield-positions {
-            background-color: #e8f4f8;
-            border: 1px solid #b8d8e8;
-        }
-
-        .outfield-positions {
-            background-color: #f0f8e8;
-            border: 1px solid #d0e8b8;
-            margin-top: 10px;
-        }
-
-        .position-row {
+        .position-grid {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
             gap: 10px;
-            margin: 5px 0;
+            margin: 10px 0;
         }
 
         .position-item {
-            padding: 8px;
-            background-color: white;
+            padding: 10px;
+            background-color: #f8f8f8;
             border-radius: 4px;
             border: 1px solid #eee;
+        }
+
+        .position-label {
+            font-weight: bold;
+            color: #34495e;
         }
 
         .sitting-out {
@@ -114,24 +85,12 @@
             margin-top: 10px;
             color: #666;
         }
-
-        .inning-header {
-            color: #2c3e50;
-            margin-bottom: 15px;
-        }
-
-        .position-label {
-            font-weight: bold;
-            color: #34495e;
-        }
     </style>
 </head>
 <body>
     <div class="roster-input">
         <h2>Team Roster (Players 12-24)</h2>
-        <div id="playerInputs">
-            <!-- Player inputs will be generated here -->
-        </div>
+        <div id="playerInputs"></div>
         <button onclick="generateLineup()">Generate Lineup</button>
     </div>
 
@@ -140,28 +99,28 @@
         <div id="inningsOutput"></div>
     </div>
 
-    <script>        
-        const positions = ['P', 'C', '1B', '2B', '3B', 'SS'];
-        const outfieldPositions = ['LF', 'LCF', 'RCF', 'RF'];
-        const playerInputs = document.getElementById('playerInputs');
-
-        // Initialize 13 players with numbers 12-24 and remove buttons
+    <script>
+        const allPositions = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'LCF', 'RCF', 'RF'];
+        
         function initializePlayers() {
-            playerInputs.innerHTML = '';
+            const container = document.getElementById('playerInputs');
+            container.innerHTML = '';
+            
             for (let i = 0; i < 13; i++) {
                 const div = document.createElement('div');
                 div.className = 'player-input';
                 div.innerHTML = `
                     <input type="text" value="${12 + i}" readonly>
-                    <select>
-                        ${positions.map(pos => `<option value="${pos}">${pos}</option>`).join('')}
-                    </select>
-                    <select>
-                        ${positions.map(pos => `<option value="${pos}">${pos}</option>`).join('')}
-                    </select>
+                    ${Array(3).fill().map((_, idx) => `
+                        <select>
+                            ${allPositions.map(pos => 
+                                `<option value="${pos}">${pos}</option>`
+                            ).join('')}
+                        </select>
+                    `).join('')}
                     <button class="remove" onclick="this.parentElement.remove()">Remove</button>
                 `;
-                playerInputs.appendChild(div);
+                container.appendChild(div);
             }
         }
 
@@ -169,15 +128,12 @@
             const players = [];
             const inputs = document.querySelectorAll('.player-input');
             
-            // Collect player data
-            inputs.forEach((input, index) => {
+            inputs.forEach(input => {
                 const name = input.children[0].value.trim();
-                const pref1 = input.children[1].value;
-                const pref2 = input.children[2].value;
-                
+                const prefs = Array.from(input.querySelectorAll('select')).map(s => s.value);
                 players.push({
                     name,
-                    preferences: [pref1, pref2],
+                    preferences: prefs,
                     stats: {
                         positions: {},
                         sit: 0,
@@ -186,59 +142,30 @@
                 });
             });
 
-            const playerCount = players.length;
-            if (playerCount < 10) {
+            if (players.length < 10) {
                 alert('Minimum 10 players required');
                 return;
             }
 
-            const sitsPerInning = playerCount - 10;
-            const maxCooldown = Math.max(1, Math.floor(6 / sitsPerInning));
-
             // Initialize stats
             players.forEach(player => {
-                [...positions, ...outfieldPositions].forEach(pos => {
-                    player.stats.positions[pos] = 0;
-                });
+                allPositions.forEach(pos => player.stats.positions[pos] = 0);
                 player.stats.sit = 0;
                 player.stats.lastSatInning = -1;
             });
 
             const innings = [];
             
-            // Generate 6 innings
             for (let inningNum = 1; inningNum <= 6; inningNum++) {
+                const sitsPerInning = players.length - 10;
                 let sitting = [];
-                let cooldown = maxCooldown;
-                let retries = 3;
-
-                while (sitting.length < sitsPerInning && retries > 0) {
-                    const candidates = players
-                        .filter(p => !sitting.includes(p))
-                        .filter(p => p.stats.lastSatInning === -1 || 
-                                   inningNum - p.stats.lastSatInning > cooldown)
-                        .sort((a, b) => a.stats.sit - b.stats.sit || 
-                                      a.stats.lastSatInning - b.stats.lastSatInning);
-
-                    const needed = sitsPerInning - sitting.length;
-                    sitting.push(...shuffleArray(candidates).slice(0, needed));
-                    
-                    if (sitting.length < sitsPerInning) {
-                        cooldown = Math.max(0, cooldown - 1);
-                        retries--;
-                    }
-                }
-
-                // Fallback - select least sat players
-                if (sitting.length < sitsPerInning) {
-                    const needed = sitsPerInning - sitting.length;
-                    const remaining = players
-                        .filter(p => !sitting.includes(p))
-                        .sort((a, b) => a.stats.sit - b.stats.sit);
-                    sitting.push(...remaining.slice(0, needed));
-                }
-
-                // Update sitting stats
+                
+                // Select players to sit
+                let candidates = players
+                    .filter(p => p.stats.sit === Math.min(...players.map(p => p.stats.sit)))
+                    .sort((a, b) => a.stats.lastSatInning - b.stats.lastSatInning);
+                
+                sitting = shuffleArray(candidates).slice(0, sitsPerInning);
                 sitting.forEach(p => {
                     p.stats.sit++;
                     p.stats.lastSatInning = inningNum;
@@ -247,29 +174,31 @@
                 // Assign positions
                 const assignments = {};
                 const playing = players.filter(p => !sitting.includes(p));
-                const infieldPositions = shuffleArray([...positions]);
-
-                // Assign infield positions
-                infieldPositions.forEach(pos => {
-                    const candidate = playing.find(p => 
-                        p.preferences.includes(pos) && 
-                        !Object.values(assignments).includes(p.name)
-                    ) || playing.find(p => !Object.values(assignments).includes(p.name));
+                const shuffledPositions = shuffleArray([...allPositions]);
+                
+                shuffledPositions.forEach(pos => {
+                    // Find best candidate for position
+                    const candidates = playing.filter(p => 
+                        !Object.values(assignments).includes(p.name) &&
+                        p.preferences.includes(pos)
+                    ).sort((a, b) => 
+                        a.stats.positions[pos] - b.stats.positions[pos]
+                    );
                     
-                    if (candidate) {
-                        assignments[pos] = candidate.name;
-                        candidate.stats.positions[pos]++;
-                    }
-                });
-
-                // Assign outfield positions
-                let ofIndex = 0;
-                playing.forEach(player => {
-                    if (!Object.values(assignments).includes(player.name)) {
-                        const pos = outfieldPositions[ofIndex];
+                    if (candidates.length > 0) {
+                        const player = candidates[0];
                         assignments[pos] = player.name;
                         player.stats.positions[pos]++;
-                        ofIndex++;
+                    } else {
+                        // Assign any available player
+                        const available = playing.filter(p => 
+                            !Object.values(assignments).includes(p.name)
+                        );
+                        if (available.length > 0) {
+                            const player = available[0];
+                            assignments[pos] = player.name;
+                            player.stats.positions[pos]++;
+                        }
                     }
                 });
 
@@ -283,9 +212,6 @@
             displayResults(innings);
         }
 
-        const infieldOrder = ['P', 'C', '1B', '2B', '3B', 'SS'];
-        const outfieldOrder = ['LF', 'LCF', 'RCF', 'RF'];
-        
         function displayResults(innings) {
             const output = document.getElementById('inningsOutput');
             output.innerHTML = '';
@@ -294,16 +220,7 @@
                 const inningDiv = document.createElement('div');
                 inningDiv.className = 'inning';
                 
-                // Create infield positions
-                const infield = infieldOrder.map(pos => `
-                    <div class="position-item">
-                        <span class="position-label">${pos}:</span>
-                        ${inning.assignments[pos] || '---'}
-                    </div>
-                `).join('');
-                
-                // Create outfield positions
-                const outfield = outfieldOrder.map(pos => `
+                const positionsHTML = allPositions.map(pos => `
                     <div class="position-item">
                         <span class="position-label">${pos}:</span>
                         ${inning.assignments[pos] || '---'}
@@ -311,55 +228,13 @@
                 `).join('');
 
                 inningDiv.innerHTML = `
-                    <h3 class="inning-header">Inning ${inning.inning}</h3>
-                    <div class="position-group infield-positions">
-                        <h4>Infield Positions</h4>
-                        <div class="position-row">
-                            ${infield}
-                        </div>
-                    </div>
-                    <div class="position-group outfield-positions">
-                        <h4>Outfield Positions</h4>
-                        <div class="position-row">
-                            ${outfield}
-                        </div>
+                    <h3>Inning ${inning.inning}</h3>
+                    <div class="position-grid">
+                        ${positionsHTML}
                     </div>
                     <div class="sitting-out">
                         <strong>Sitting Out:</strong> ${inning.sitting.join(', ')}
                     </div>
-                `;
-                
-                output.appendChild(inningDiv);
-            });
-
-            document.getElementById('results').style.display = 'block';
-        }
-
-        
-        function displayResults(innings) {
-            const output = document.getElementById('inningsOutput');
-            output.innerHTML = '';
-            
-            innings.forEach(inning => {
-                const inningDiv = document.createElement('div');
-                inningDiv.className = 'inning';
-                inningDiv.innerHTML = `
-                    <h3>Inning ${inning.inning}</h3>
-                    <div class="positions">
-                        <div class="position-group">
-                            <h4>Infield</h4>
-                            ${positions.map(pos => `
-                                <div>${pos}: ${inning.assignments[pos] || 'UNASSIGNED'}</div>
-                            `).join('')}
-                        </div>
-                        <div class="position-group">
-                            <h4>Outfield</h4>
-                            ${outfieldPositions.map(pos => `
-                                <div>${pos}: ${inning.assignments[pos] || 'UNASSIGNED'}</div>
-                            `).join('')}
-                        </div>
-                    </div>
-                    <div><strong>Sitting Out:</strong> ${inning.sitting.join(', ')}</div>
                 `;
                 output.appendChild(inningDiv);
             });
@@ -375,7 +250,6 @@
             return array;
         }
 
-        // Initialize players on load
         initializePlayers();
     </script>
 </body>
