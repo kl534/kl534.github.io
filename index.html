@@ -95,7 +95,7 @@
             const div = document.createElement('div');
             div.className = 'player-input';
             div.innerHTML = `
-                <input type="text" id="name${i}" placeholder="Player ${i} name">
+                <input type="text" id="name${i}" placeholder="Player ${i} name" value="${i+11}">
                 <select id="pref1-${i}">
                     ${positions.map(pos => `<option value="${pos}">${pos}</option>`).join('')}
                 </select>
