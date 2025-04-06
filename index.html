@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Youth Baseball Lineup Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+
+        .roster-input {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .player-input {
+            margin: 10px 0;
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 10px;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .results {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        .inning {
+            margin-bottom: 20px;
+        }
+
+        .positions {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .position-group {
+            background-color: #f8f8f8;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        select {
+            padding: 5px;
+            border-radius: 3px;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <div class="roster-input">
+        <h2>Team Roster</h2>
+        <div id="playerInputs">
+            <!-- Player inputs will be generated here -->
+        </div>
+        <button onclick="generateLineup()">Generate Lineup</button>
+    </div>
+
+    <div id="results" class="results" style="display: none;">
+        <h2>Game Lineups</h2>
+        <div id="inningsOutput"></div>
+    </div>
+
+    <script>
+        // Generate player input fields
+        const positions = ['P', 'C', '1B', '2B', '3B', 'SS'];
+        const playerInputs = document.getElementById('playerInputs');
+        
+        for (let i = 1; i <= 13; i++) {
+            const div = document.createElement('div');
+            div.className = 'player-input';
+            div.innerHTML = `
+                <input type="text" id="name${i}" placeholder="Player ${i} name">
+                <select id="pref1-${i}">
+                    ${positions.map(pos => `<option value="${pos}">${pos}</option>`).join('')}
+                </select>
+                <select id="pref2-${i}">
+                    ${positions.map(pos => `<option value="${pos}">${pos}</option>`).join('')}
+                </select>
+            `;
+            playerInputs.appendChild(div);
+        }
+        function generateLineup() {
+            const players = [];
+            
+            // Collect player data (same as before)
+
+            // Initialize stats with lastSatInning
+            players.forEach(player => {
+                ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'OF4'].forEach(pos => {
+                    player.stats.positions[pos] = 0;
+                });
+                player.stats.sit = 0;
+                player.stats.lastSatInning = 0;
+            });
+
+            const innings = [];
+            
+            // Generate 6 innings
+            for (let inningNum = 1; inningNum <= 6; inningNum++) {
+                // Determine who sits with improved fairness
+                const minSit = Math.min(...players.map(p => p.stats.sit));
+                let candidates = players
+                    .filter(p => p.stats.sit === minSit)
+                    .sort((a, b) => a.stats.lastSatInning - b.stats.lastSatInning);
+                
+                candidates = shuffleArray(candidates);
+                let sitting = candidates.slice(0, 3);
+
+                // If needed, get from next sit tier
+                if (sitting.length < 3) {
+                    const needed = 3 - sitting.length;
+                    const nextSit = minSit + 1;
+                    let nextCandidates = players
+                        .filter(p => p.stats.sit === nextSit && !sitting.includes(p))
+                        .sort((a, b) => a.stats.lastSatInning - b.stats.lastSatInning);
+                    nextCandidates = shuffleArray(nextCandidates);
+                    sitting.push(...nextCandidates.slice(0, needed));
+                }
+
+                // Final fallback (shouldn't trigger with 13 players)
+                if (sitting.length < 3) {
+                    const needed = 3 - sitting.length;
+                    const remaining = players
+                        .filter(p => !sitting.includes(p))
+                        .sort((a, b) => a.stats.sit - b.stats.sit);
+                    sitting.push(...remaining.slice(0, needed));
+                }
+
+                // Update sitting stats
+                sitting.forEach(p => {
+                    p.stats.sit++;
+                    p.stats.lastSatInning = inningNum;
+                });
+
+                // (Keep the rest of the position assignment logic the same)
+                
+                innings.push({
+                    inning: inningNum,
+                    sitting: sitting.map(p => p.name),
+                    assignments: {...assignments}
+                });
+            }
+
+            displayResults(innings);
+        }
+
+
+        function displayResults(innings) {
+            const output = document.getElementById('inningsOutput');
+            output.innerHTML = '';
+            
+            innings.forEach(inning => {
+                const inningDiv = document.createElement('div');
+                inningDiv.className = 'inning';
+                inningDiv.innerHTML = `
+                    <h3>Inning ${inning.inning}</h3>
+                    <div class="positions">
+                        <div class="position-group">
+                            <h4>Infield</h4>
+                            ${Object.entries(inning.assignments)
+                                .filter(([pos]) => ['P', 'C', '1B', '2B', '3B', 'SS'].includes(pos))
+                                .map(([pos, name]) => `<div>${pos}: ${name}</div>`)
+                                .join('')}
+                        </div>
+                        <div class="position-group">
+                            <h4>Outfield</h4>
+                            ${Object.entries(inning.assignments)
+                                .filter(([pos]) => ['LF', 'CF', 'RF', 'OF4'].includes(pos))
+                                .map(([pos, name]) => `<div>${pos}: ${name}</div>`)
+                                .join('')}
+                        </div>
+                    </div>
+                    <div><strong>Sitting Out:</strong> ${inning.sitting.join(', ')}</div>
+                `;
+                output.appendChild(inningDiv);
+            });
+
+            document.getElementById('results').style.display = 'block';
+        }
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+    </script>
+</body>
+</html>
