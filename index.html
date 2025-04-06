@@ -482,7 +482,7 @@
                 
                 // Process positions in random order
                 const positionOrder = shuffleArray([...allPositions]);
-        
+
                 positionOrder.forEach(pos => {
                     const isInfield = infieldPositions.includes(pos);
                     let candidates = playing.filter(p => 
@@ -492,18 +492,30 @@
                         (p.stats.sitCount < 2 || p.stats.usedOutfields < 1 || !isInfield)
                     );
         
+                    // Sort candidates by: 
+                    // 1. Most infield grab bag items
+                    // 2. Fewest total remaining grab bag items
+                    candidates.sort((a, b) => {
+                        const aInfieldCount = a.grabBag.filter(p => infieldPositions.includes(p)).length;
+                        const bInfieldCount = b.grabBag.filter(p => infieldPositions.includes(p)).length;
+                        
+                        // Descending order for infield count
+                        if(bInfieldCount !== aInfieldCount) return bInfieldCount - aInfieldCount;
+                        
+                        // Ascending order for total remaining
+                        return a.grabBag.length - b.grabBag.length;
+                    });
+        
                     // Try preferred positions first
-                    let validCandidates = candidates.filter(p => 
-                        p.grabBag.includes(pos)
-                    );
+                    let validCandidates = candidates.filter(p => p.grabBag.includes(pos));
         
                     if(validCandidates.length === 0) {
-                        // Fallback to any available candidate
                         validCandidates = candidates;
                     }
         
                     if(validCandidates.length > 0) {
-                        const player = validCandidates[Math.floor(Math.random() * validCandidates.length)];
+                        // Take first candidate from sorted list
+                        const player = validCandidates[0];
                         assignments[pos] = player.name;
                         
                         // Update grab bag
