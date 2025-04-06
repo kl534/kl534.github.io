@@ -114,30 +114,56 @@
             margin: 0 0 15px 0;
         }
 
-        @media (max-width: 600px) {
-            body {
-                padding: 10px;
-                font-size: 14px;
-            }
-
-            .player-input {
-                grid-template-columns: 1fr;
-            }
-
-            .player-input input,
-            .player-input select {
-                width: 100%;
-            }
-
-            button {
-                width: 100%;
-                padding: 12px;
-            }
-
-            .position-grid {
-                grid-template-columns: 1fr 1fr;
-            }
+    @media (max-width: 600px) {
+        body {
+            padding: 10px;
+            font-size: 14px;
         }
+
+        .player-input {
+            grid-template-columns: minmax(120px, 1.5fr) repeat(3, minmax(60px, 1fr)) auto;
+            gap: 6px;
+        }
+
+        .player-input input,
+        .player-input select {
+            font-size: 12px;
+            padding: 6px;
+            min-width: 0; /* Allows fields to shrink */
+        }
+
+        button {
+            padding: 8px 10px;
+            font-size: 13px;
+        }
+
+        button.remove {
+            padding: 4px 8px;
+            min-width: 28px;
+        }
+
+        .position-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        /* Force single line for player names */
+        .player-input input {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    }
+
+    /* Add horizontal scroll for very small screens */
+    @media (max-width: 400px) {
+        .roster-input {
+            overflow-x: auto;
+        }
+        
+        .player-input {
+            min-width: 340px; /* Minimum width to prevent crushing */
+        }
+    }
     </style>
 </head>
 <body>
