@@ -146,68 +146,6 @@
             color: #666;
         }
 
-        @media (max-width: 600px) {
-            body {
-                padding: 10px;
-                font-size: 14px;
-            }
-
-            .player-input {
-                grid-template-columns: minmax(120px, 1.5fr) repeat(3, minmax(60px, 1fr)) auto;
-                gap: 6px;
-            }
-
-            .player-input input,
-            .player-input select {
-                font-size: 12px;
-                padding: 6px;
-                min-width: 0;
-            }
-
-            button {
-                padding: 8px 10px;
-                font-size: 13px;
-            }
-
-            button.remove {
-                padding: 4px 8px;
-                min-width: 28px;
-            }
-
-            .position-grid {
-                grid-template-columns: repeat(3, 1fr);
-            }
-        }
-
-                .position-counts {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 10px;
-            margin-top: 15px;
-            padding: 15px;
-            background-color: var(--background-color);
-            border-radius: 8px;
-        }
-
-        .position-count-item {
-            text-align: center;
-            padding: 8px;
-            background-color: var(--card-background);
-            border-radius: 4px;
-            border: 1px solid #eee;
-        }
-
-        .count-label {
-            font-size: 0.9em;
-            color: #666;
-        }
-
-        .count-number {
-            font-size: 1.2em;
-            font-weight: bold;
-            color: var(--primary-color);
-        }
-
         .player-summary {
             background-color: var(--background-color);
             padding: 20px;
@@ -244,6 +182,72 @@
             border-radius: 12px;
             font-size: 0.9em;
         }
+
+        .position-counts {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+            padding: 15px;
+            background-color: var(--background-color);
+            border-radius: 8px;
+        }
+
+        .position-count-item {
+            text-align: center;
+            padding: 8px;
+            background-color: var(--card-background);
+            border-radius: 4px;
+            border: 1px solid #eee;
+        }
+
+        .count-label {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .count-number {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+                font-size: 14px;
+            }
+
+            .player-input {
+                grid-template-columns: minmax(120px, 1.5fr) repeat(3, minmax(60px, 1fr)) auto;
+                gap: 6px;
+            }
+
+            .player-input input,
+            .player-input select {
+                font-size: 12px;
+                padding: 6px;
+                min-width: 0;
+            }
+
+            button {
+                padding: 8px 10px;
+                font-size: 13px;
+            }
+
+            button.remove {
+                padding: 4px 8px;
+                min-width: 28px;
+            }
+
+            .position-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+
+            .position-counts {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
     </style>
 </head>
 <body>
@@ -278,28 +282,6 @@
         const infieldPositions = ['P', 'C', '1B', '2B', '3B', 'SS'];
         const outfieldPositions = ['LF', 'LCF', 'RCF', 'RF'];
 
-        function updatePositionCounts() {
-            const positionMap = {};
-            allPositions.forEach(pos => positionMap[pos] = 0);
-
-            document.querySelectorAll('.player-input').forEach(input => {
-                Array.from(input.querySelectorAll('select')).forEach(select => {
-                    positionMap[select.value]++;
-                });
-            });
-
-            const countsHTML = allPositions.map(pos => `
-                <div class="position-count-item">
-                    <div class="count-label">${pos}</div>
-                    <div class="count-number">${positionMap[pos]}</div>
-                </div>
-            `).join('');
-
-            document.getElementById('positionCounts').innerHTML = `
-                <div class="position-counts">${countsHTML}</div>
-            `;
-        }
-        
         function toggleRoster() {
             const header = document.querySelector('.roster-header');
             const setup = document.getElementById('rosterSetup');
@@ -328,6 +310,7 @@
                 createDefaultPlayers();
             }
             updateAddButtonState();
+            updatePositionCounts();
         }
 
         function createDefaultPlayers() {
@@ -350,12 +333,18 @@
                         `).join('')}
                     </select>
                 `).join('')}
-                <button class="remove" onclick="this.parentElement.remove(); saveRoster(); updateAddButtonState();">×</button>
+                <button class="remove" onclick="this.parentElement.remove(); saveRoster(); updateAddButtonState(); updatePositionCounts();">×</button>
             `;
             div.querySelectorAll('select').forEach(select => {
-                select.addEventListener('change', saveRoster);
+                select.addEventListener('change', () => {
+                    saveRoster();
+                    updatePositionCounts();
+                });
             });
-            div.querySelector('input').addEventListener('input', saveRoster);
+            div.querySelector('input').addEventListener('input', () => {
+                saveRoster();
+                updatePositionCounts();
+            });
             document.getElementById('playerInputs').appendChild(div);
         }
 
@@ -365,6 +354,7 @@
             addPlayerElement('', ['P', 'C', '1B']);
             saveRoster();
             updateAddButtonState();
+            updatePositionCounts();
         }
 
         function updateAddButtonState() {
@@ -388,7 +378,28 @@
                 players.push({ name, preferences: prefs });
             });
             localStorage.setItem('rosterData', JSON.stringify(players));
-            updatePositionCounts();
+        }
+
+        function updatePositionCounts() {
+            const positionMap = {};
+            allPositions.forEach(pos => positionMap[pos] = 0);
+
+            document.querySelectorAll('.player-input').forEach(input => {
+                Array.from(input.querySelectorAll('select')).forEach(select => {
+                    positionMap[select.value]++;
+                });
+            });
+
+            const countsHTML = allPositions.map(pos => `
+                <div class="position-count-item">
+                    <div class="count-label">${pos}</div>
+                    <div class="count-number">${positionMap[pos]}</div>
+                </div>
+            `).join('');
+
+            document.getElementById('positionCounts').innerHTML = `
+                <div class="position-counts">${countsHTML}</div>
+            `;
         }
 
         function checkSavedLineup() {
@@ -417,8 +428,7 @@
                         preferences: prefs,
                         stats: {
                             positions: {},
-                            positionCounts: {},
-                            lastPosition: null,
+                            positionHistory: [],
                             infieldCount: 0,
                             outfieldCount: 0,
                             sit: 0,
@@ -436,7 +446,6 @@
             players.forEach(player => {
                 allPositions.forEach(pos => {
                     player.stats.positions[pos] = 0;
-                    player.stats.positionCounts[pos] = 0;
                 });
                 player.stats.infieldCount = 0;
                 player.stats.outfieldCount = 0;
@@ -453,7 +462,6 @@
                 let cooldown = 4;
                 let retries = 3;
 
-                // Sitting selection logic
                 while (sitting.length < sitsPerInning && retries > 0) {
                     const candidates = players
                         .filter(p => !sitting.includes(p))
@@ -474,7 +482,6 @@
                     }
                 }
 
-                // Fallback sitting selection
                 if (sitting.length < sitsPerInning) {
                     const remaining = players
                         .filter(p => !sitting.includes(p))
@@ -482,7 +489,6 @@
                     sitting.push(...remaining.slice(0, sitsPerInning - sitting.length));
                 }
 
-                // Update sitting stats
                 sitting.forEach(p => {
                     p.stats.sit++;
                     p.stats.lastSatInning = inningNum;
@@ -490,70 +496,68 @@
 
                 const assignments = {};
                 const playing = players.filter(p => !sitting.includes(p));
-                const shuffledPositions = shuffleArray([...allPositions]);
 
-                // Assign infield positions first with strict preferences
+                // Assign infield positions first
                 const infieldToAssign = shuffleArray([...infieldPositions]);
-                
                 infieldToAssign.forEach(pos => {
-                    // Get players with this position in their preferences
-                    let candidates = playing
-                        .filter(p => p.preferences.includes(pos))
-                        .sort((a, b) => 
-                            a.stats.positionCounts[pos] - b.stats.positionCounts[pos]
-                        );
-
-                    // Remove players already assigned
-                    candidates = candidates.filter(p => !Object.values(assignments).includes(p.name));
+                    let candidates = playing.filter(p => 
+                        p.preferences.includes(pos) &&
+                        !Object.values(assignments).includes(p.name) &&
+                        p.stats.positions[pos] < 3
+                    );
 
                     if (candidates.length > 0) {
                         const player = candidates[0];
                         assignments[pos] = player.name;
-                        player.stats.positions[pos] = (player.stats.positions[pos] || 0) + 1;
+                        player.stats.positions[pos]++;
+                        player.stats.infieldCount++;
                         player.stats.positionHistory.push(pos);
-                        if (infieldPositions.includes(pos)) player.stats.infieldCount++;
                     }
                 });
 
-                // Assign remaining infield positions to available players
+                // Fill remaining infield positions
                 infieldToAssign.forEach(pos => {
                     if (!assignments[pos]) {
-                        const available = playing.filter(p => 
+                        const candidates = playing.filter(p => 
                             !Object.values(assignments).includes(p.name) &&
-                            p.preferences.some(p => infieldPositions.includes(p))
+                            p.preferences.some(p => infieldPositions.includes(p)) &&
+                            p.stats.positions[pos] < 3
                         );
-                        if (available.length > 0) {
-                            const player = available[0];
+
+                        if (candidates.length > 0) {
+                            const player = candidates[0];
                             assignments[pos] = player.name;
-                            player.stats.positions[pos] = (player.stats.positions[pos] || 0) + 1;
-                            player.stats.positionHistory.push(pos);
+                            player.stats.positions[pos]++;
                             player.stats.infieldCount++;
+                            player.stats.positionHistory.push(pos);
                         }
                     }
                 });
 
-                // Assign outfield positions with preference priority
+                // Assign outfield positions with preference
                 const outfieldToAssign = shuffleArray([...outfieldPositions]);
                 outfieldToAssign.forEach(pos => {
-                    let candidates = playing
-                        .filter(p => !Object.values(assignments).includes(p.name))
-                        .sort((a, b) => 
-                            (a.preferences.includes(pos) ? 0 : 1) - 
-                            (b.preferences.includes(pos) ? 0 : 1) ||
-                            a.stats.positionCounts[pos] - b.stats.positionCounts[pos]
-                        );
+                    let candidates = playing.filter(p => 
+                        !Object.values(assignments).includes(p.name) &&
+                        p.stats.positions[pos] < 3
+                    );
+
+                    candidates.sort((a, b) => 
+                        (a.preferences.includes(pos) ? 0 : 1) - 
+                        (b.preferences.includes(pos) ? 0 : 1)
+                    );
 
                     if (candidates.length > 0) {
                         const player = candidates[0];
                         assignments[pos] = player.name;
-                        player.stats.positions[pos] = (player.stats.positions[pos] || 0) + 1;
-                        player.stats.positionHistory.push(pos);
+                        player.stats.positions[pos]++;
                         player.stats.outfieldCount++;
+                        player.stats.positionHistory.push(pos);
                     }
                 });
 
-                // Fallback for unassigned positions
-                shuffledPositions.forEach(pos => {
+                // Final fallback for any unassigned positions
+                allPositions.forEach(pos => {
                     if (!assignments[pos]) {
                         const available = playing.filter(p => 
                             !Object.values(assignments).includes(p.name)
@@ -561,20 +565,14 @@
                         if (available.length > 0) {
                             const player = available[0];
                             assignments[pos] = player.name;
-                            player.stats.positionCounts[pos]++;
-                            if (infieldPositions.includes(pos)) player.stats.infieldCount++;
-                            else player.stats.outfieldCount++;
+                            player.stats.positions[pos]++;
+                            if (infieldPositions.includes(pos)) {
+                                player.stats.infieldCount++;
+                            } else {
+                                player.stats.outfieldCount++;
+                            }
+                            player.stats.positionHistory.push(pos);
                         }
-                    }
-                });
-
-                // Update player preferences for requirements
-                playing.forEach(player => {
-                    if (player.stats.infieldCount === 0) {
-                        player.preferences = [...infieldPositions, ...player.preferences];
-                    }
-                    if (player.stats.outfieldCount === 0) {
-                        player.preferences = [...outfieldPositions, ...player.preferences];
                     }
                 });
 
@@ -585,14 +583,16 @@
                 });
             }
 
-            // Validation checks
             let validationErrors = [];
             players.forEach(player => {
-                const totalInnings = 6 - player.stats.sit;
-                const infieldRatio = player.stats.infieldCount / totalInnings;
-                if (infieldRatio < 0.25 || infieldRatio > 0.75) {
-                    validationErrors.push(`${player.name} has uneven IF/OF time (${player.stats.infieldCount} IF / ${player.stats.outfieldCount} OF)`);
+                if (player.stats.infieldCount === 0 || player.stats.outfieldCount === 0) {
+                    validationErrors.push(`${player.name} didn't play both infield and outfield`);
                 }
+                Object.entries(player.stats.positions).forEach(([pos, count]) => {
+                    if (count > 3) {
+                        validationErrors.push(`${player.name} played ${pos} ${count} times`);
+                    }
+                });
             });
 
             if (validationErrors.length > 0) {
@@ -668,16 +668,6 @@
 
         // Initialize on load
         initializePlayers();
-        updatePositionCounts();
-        
-        // Update player stats initialization
-        players.forEach(player => {
-            allPositions.forEach(pos => {
-                player.stats.positions[pos] = 0;
-                player.stats.positionCounts[pos] = 0;
-            });
-            player.stats.positionHistory = [];
-        });
     </script>
 </body>
 </html>
