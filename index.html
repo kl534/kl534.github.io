@@ -108,7 +108,28 @@
         function generateLineup() {
             const players = [];
             
-            // Collect player data (same as before)
+            // Collect player data
+            for (let i = 1; i <= 13; i++) {
+                const name = document.getElementById(`name${i}`).value.trim();
+                const pref1 = document.getElementById(`pref1-${i}`).value;
+                const pref2 = document.getElementById(`pref2-${i}`).value;
+                
+                if (name) {
+                    players.push({
+                        name,
+                        preferences: [pref1, pref2],
+                        stats: {
+                            positions: {},
+                            sit: 0
+                        }
+                    });
+                }
+            }
+
+            if (players.length !== 13) {
+                alert('Please enter all 13 players');
+                return;
+            }
 
             // Initialize stats with lastSatInning
             players.forEach(player => {
@@ -158,7 +179,56 @@
                     p.stats.lastSatInning = inningNum;
                 });
 
-                // (Keep the rest of the position assignment logic the same)
+                // Get playing players
+                const playing = players.filter(p => !sitting.includes(p));
+
+                // Assign positions
+                const assignments = {};
+                const infieldPositions = shuffleArray(['P', 'C', '1B', '2B', '3B', 'SS']);
+                const assignedPlayers = new Set();
+
+                // Assign preferred positions first
+                infieldPositions.forEach(pos => {
+                    const candidates = playing.filter(p => 
+                        !assignedPlayers.has(p) && 
+                        p.preferences.includes(pos)
+                    ).sort((a, b) => {
+                        const aCount = a.stats.positions[pos];
+                        const bCount = b.stats.positions[pos];
+                        return aCount - bCount || a.preferences.indexOf(pos) - b.preferences.indexOf(pos);
+                    });
+
+                    if (candidates.length > 0) {
+                        const player = candidates[0];
+                        assignments[pos] = player.name;
+                        assignedPlayers.add(player);
+                        player.stats.positions[pos]++;
+                    }
+                });
+
+                // Fill remaining infield positions
+                infieldPositions.forEach(pos => {
+                    if (!assignments[pos]) {
+                        const available = playing.filter(p => !assignedPlayers.has(p));
+                        if (available.length > 0) {
+                            const player = available[0];
+                            assignments[pos] = player.name;
+                            assignedPlayers.add(player);
+                            player.stats.positions[pos]++;
+                        }
+                    }
+                });
+
+                // Assign outfield positions
+                const outfieldPositions = ['LF', 'CF', 'RF', 'OF4'];
+                let ofIndex = 0;
+                playing.forEach(player => {
+                    if (!assignedPlayers.has(player)) {
+                        assignments[outfieldPositions[ofIndex]] = player.name;
+                        player.stats.positions[outfieldPositions[ofIndex]]++;
+                        ofIndex++;
+                    }
+                });
                 
                 innings.push({
                     inning: inningNum,
