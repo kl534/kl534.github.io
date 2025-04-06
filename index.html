@@ -23,10 +23,45 @@
 
         .roster-input {
             background-color: var(--card-background);
-            padding: 20px;
             border-radius: 12px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             margin-bottom: 20px;
+        }
+
+        .roster-header {
+            padding: 15px 20px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #eee;
+        }
+
+        .roster-header h2 {
+            margin: 0;
+        }
+
+        .roster-header::after {
+            content: '▼';
+            font-size: 0.8em;
+            color: #666;
+            transition: transform 0.2s;
+        }
+
+        .roster-header.collapsed::after {
+            transform: rotate(-90deg);
+        }
+
+        .roster-setup {
+            padding: 20px;
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+
+        .roster-setup.collapsed {
+            max-height: 0;
+            padding: 0 20px;
+            opacity: 0;
         }
 
         .player-input {
@@ -113,7 +148,13 @@
             color: var(--primary-color);
             margin: 0 0 15px 0;
         }
-
+        
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        
     @media (max-width: 600px) {
         body {
             padding: 10px;
@@ -168,13 +209,21 @@
 </head>
 <body>
     <div class="roster-input">
-        <h2>Team Roster</h2>
-        <div id="playerInputs"></div>
-        <div style="margin-top: 15px; display: flex; gap: 10px;">
-            <button id="addPlayerBtn" onclick="addPlayer()">Add Player</button>
-            <button onclick="generateLineup()">Generate Lineup</button>
+        <div class="roster-header" onclick="toggleRoster()">
+            <h2>Team Roster</h2>
+        </div>
+        <div class="roster-setup" id="rosterSetup">
+            <div id="playerInputs"></div>
+            <div class="controls">
+                <button id="addPlayerBtn" onclick="addPlayer()">Add Player</button>
+            </div>
         </div>
     </div>
+
+    <div class="controls">
+        <button onclick="generateLineup()">Generate Lineup</button>
+    </div>
+
 
     <div id="results" class="results" style="display: none;">
         <h2>Game Lineups</h2>
@@ -198,6 +247,9 @@
                 createDefaultPlayers();
             }
             updateAddButtonState();
+
+            document.querySelector('.roster-header').classList.remove('collapsed');
+            document.getElementById('rosterSetup').classList.remove('collapsed');
         }
 
         function createDefaultPlayers() {
@@ -273,6 +325,20 @@
             }
         }
 
+        function toggleRoster() {
+            const header = document.querySelector('.roster-header');
+            const setup = document.getElementById('rosterSetup');
+            header.classList.toggle('collapsed');
+            setup.classList.toggle('collapsed');
+        }
+
+        function collapseRoster() {
+            const header = document.querySelector('.roster-header');
+            const setup = document.getElementById('rosterSetup');
+            header.classList.add('collapsed');
+            setup.classList.add('collapsed');
+        }
+        
         function generateLineup() {
             const players = [];
             const inputs = document.querySelectorAll('.player-input');
@@ -377,6 +443,8 @@
                     assignments: {...assignments}
                 });
             }
+
+            collapseRoster();
 
             localStorage.setItem('lastLineup', JSON.stringify(innings));
             displayResults(innings);
