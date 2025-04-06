@@ -133,7 +133,7 @@
 
             // Initialize stats with lastSatInning = -1 (never sat)
             players.forEach(player => {
-                ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'OF4'].forEach(pos => {
+                ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'LCF', 'RCF', 'RF'].forEach(pos => {
                     player.stats.positions[pos] = 0;
                 });
                 player.stats.sit = 0;
@@ -232,7 +232,7 @@
                 });
 
                 // Assign outfield positions
-                const outfieldPositions = ['LF', 'CF', 'RF', 'OF4'];
+                const outfieldPositions = ['LF', 'RCF', 'LCF', 'RF'];
                 let ofIndex = 0;
                 playing.forEach(player => {
                     if (!assignedPlayers.has(player)) {
@@ -273,7 +273,7 @@
                         <div class="position-group">
                             <h4>Outfield</h4>
                             ${Object.entries(inning.assignments)
-                                .filter(([pos]) => ['LF', 'CF', 'RF', 'OF4'].includes(pos))
+                                .filter(([pos]) => ['LF', 'RCF', 'LCF', 'RF'].includes(pos))
                                 .map(([pos, name]) => `<div>${pos}: ${name}</div>`)
                                 .join('')}
                         </div>
