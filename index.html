@@ -5,98 +5,146 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Youth Baseball Lineup Generator</title>
     <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --background-color: #f8f9fa;
+            --card-background: #ffffff;
+        }
+
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
             max-width: 800px;
             margin: 0 auto;
             padding: 20px;
-            background-color: #f0f0f0;
+            background-color: var(--background-color);
+            line-height: 1.6;
         }
 
         .roster-input {
-            background-color: white;
+            background-color: var(--card-background);
             padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             margin-bottom: 20px;
         }
 
         .player-input {
             margin: 10px 0;
             display: grid;
-            grid-template-columns: 2fr repeat(3, 1fr) auto;
-            gap: 10px;
-            align-items: center;
+            gap: 8px;
+            grid-template-columns: 1.5fr repeat(3, 1fr) auto;
+        }
+
+        .player-input input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        select {
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            background: white;
+            font-size: 14px;
         }
 
         button {
-            background-color: #4CAF50;
+            background-color: var(--secondary-color);
             color: white;
             padding: 10px 20px;
             border: none;
-            border-radius: 5px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 16px;
-        }
-
-        button.remove {
-            background-color: #ff4444;
-            padding: 5px 10px;
+            font-size: 15px;
+            transition: opacity 0.2s;
         }
 
         button:disabled {
-            background-color: #cccccc;
+            opacity: 0.6;
             cursor: not-allowed;
         }
 
+        button.remove {
+            background-color: #e74c3c;
+            padding: 6px 12px;
+        }
+
         .results {
-            background-color: white;
+            background-color: var(--card-background);
             padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
 
         .inning {
-            background-color: white;
+            background-color: var(--card-background);
             border-radius: 8px;
             padding: 15px;
             margin-bottom: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
         }
 
         .position-grid {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
             gap: 10px;
-            margin: 10px 0;
+            margin: 15px 0;
         }
 
         .position-item {
             padding: 10px;
-            background-color: #f8f8f8;
-            border-radius: 4px;
+            background-color: var(--background-color);
+            border-radius: 6px;
             border: 1px solid #eee;
         }
 
-        .position-label {
-            font-weight: bold;
-            color: #34495e;
+        .sitting-out {
+            background-color: var(--background-color);
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 15px;
+            color: #666;
         }
 
-        .sitting-out {
-            background-color: #f8f8f8;
-            padding: 10px;
-            border-radius: 4px;
-            margin-top: 10px;
-            color: #666;
+        h2, h3 {
+            color: var(--primary-color);
+            margin: 0 0 15px 0;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+                font-size: 14px;
+            }
+
+            .player-input {
+                grid-template-columns: 1fr;
+            }
+
+            .player-input input,
+            .player-input select {
+                width: 100%;
+            }
+
+            button {
+                width: 100%;
+                padding: 12px;
+            }
+
+            .position-grid {
+                grid-template-columns: 1fr 1fr;
+            }
         }
     </style>
 </head>
 <body>
     <div class="roster-input">
-        <h2>Team Roster (Players 12-24)</h2>
+        <h2>Team Roster</h2>
         <div id="playerInputs"></div>
-        <div class="controls">
+        <div style="margin-top: 15px; display: flex; gap: 10px;">
             <button id="addPlayerBtn" onclick="addPlayer()">Add Player</button>
             <button onclick="generateLineup()">Generate Lineup</button>
         </div>
@@ -104,7 +152,6 @@
 
     <div id="results" class="results" style="display: none;">
         <h2>Game Lineups</h2>
-        <button onclick="clearSavedData()" style="margin-bottom: 15px;">Clear Saved Data</button>
         <div id="inningsOutput"></div>
     </div>
 
@@ -112,14 +159,18 @@
         const allPositions = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'LCF', 'RCF', 'RF'];
         
         function initializePlayers() {
-            const savedData = localStorage.getItem('rosterData');
-            if (savedData) {
-                const players = JSON.parse(savedData);
-                renderPlayers(players);
-            } else {
+            try {
+                const savedData = localStorage.getItem('rosterData');
+                if (savedData) {
+                    const players = JSON.parse(savedData);
+                    renderPlayers(players);
+                } else {
+                    createDefaultPlayers();
+                }
+                checkSavedLineup();
+            } catch {
                 createDefaultPlayers();
             }
-            checkSavedLineup();
             updateAddButtonState();
         }
 
@@ -127,15 +178,15 @@
             const container = document.getElementById('playerInputs');
             container.innerHTML = '';
             for (let i = 0; i < 13; i++) {
-                addPlayerElement(12 + i, ['P', 'C', '1B']);
+                addPlayerElement(`Player ${12 + i}`, ['P', 'C', '1B']);
             }
         }
 
-        function addPlayerElement(number, prefs) {
+        function addPlayerElement(name, prefs) {
             const div = document.createElement('div');
             div.className = 'player-input';
             div.innerHTML = `
-                <input type="text" value="${number}" >
+                <input type="text" value="${name}" placeholder="Player name">
                 ${Array(3).fill().map((_, idx) => `
                     <select>
                         ${allPositions.map(pos => `
@@ -143,25 +194,19 @@
                         `).join('')}
                     </select>
                 `).join('')}
-                <button class="remove" onclick="this.parentElement.remove(); saveRoster(); updateAddButtonState();">Remove</button>
+                <button class="remove" onclick="this.parentElement.remove(); saveRoster(); updateAddButtonState();">×</button>
             `;
             div.querySelectorAll('select').forEach(select => {
                 select.addEventListener('change', saveRoster);
             });
+            div.querySelector('input').addEventListener('input', saveRoster);
             document.getElementById('playerInputs').appendChild(div);
         }
 
         function addPlayer() {
             const currentPlayers = document.querySelectorAll('.player-input');
             if (currentPlayers.length >= 15) return;
-            
-            // Find highest current player number
-            const numbers = Array.from(currentPlayers).map(p => 
-                parseInt(p.querySelector('input').value)
-            );
-            const newNumber = numbers.length > 0 ? Math.max(...numbers) + 1 : 25;
-            
-            addPlayerElement(newNumber, ['P', 'C', '1B']);
+            addPlayerElement('', ['P', 'C', '1B']);
             saveRoster();
             updateAddButtonState();
         }
@@ -175,7 +220,7 @@
             const container = document.getElementById('playerInputs');
             container.innerHTML = '';
             players.forEach(player => {
-                addPlayerElement(parseInt(player.name), player.preferences);
+                addPlayerElement(player.name, player.preferences);
             });
         }
 
@@ -190,18 +235,16 @@
         }
 
         function checkSavedLineup() {
-            const savedLineup = localStorage.getItem('lastLineup');
-            if (savedLineup) {
-                const innings = JSON.parse(savedLineup);
-                displayResults(innings);
-                document.getElementById('results').style.display = 'block';
+            try {
+                const savedLineup = localStorage.getItem('lastLineup');
+                if (savedLineup) {
+                    const innings = JSON.parse(savedLineup);
+                    displayResults(innings);
+                    document.getElementById('results').style.display = 'block';
+                }
+            } catch {
+                localStorage.removeItem('lastLineup');
             }
-        }
-
-        function clearSavedData() {
-            localStorage.removeItem('rosterData');
-            localStorage.removeItem('lastLineup');
-            location.reload();
         }
 
         function generateLineup() {
@@ -211,15 +254,17 @@
             inputs.forEach(input => {
                 const name = input.children[0].value.trim();
                 const prefs = Array.from(input.querySelectorAll('select')).map(s => s.value);
-                players.push({
-                    name,
-                    preferences: prefs,
-                    stats: {
-                        positions: {},
-                        sit: 0,
-                        lastSatInning: -1
-                    }
-                });
+                if (name) {
+                    players.push({
+                        name,
+                        preferences: prefs,
+                        stats: {
+                            positions: {},
+                            sit: 0,
+                            lastSatInning: -1
+                        }
+                    });
+                }
             });
 
             if (players.length < 10) {
@@ -227,7 +272,6 @@
                 return;
             }
 
-            // Initialize stats
             players.forEach(player => {
                 allPositions.forEach(pos => player.stats.positions[pos] = 0);
                 player.stats.sit = 0;
@@ -333,7 +377,7 @@
                         ${positionsHTML}
                     </div>
                     <div class="sitting-out">
-                        <strong>Sitting Out:</strong> ${inning.sitting.join(', ')}
+                        <strong>Sitting Out:</strong> ${inning.sitting.join(', ') || 'None'}
                     </div>
                 `;
                 output.appendChild(inningDiv);
