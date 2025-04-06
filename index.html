@@ -135,7 +135,7 @@
             const div = document.createElement('div');
             div.className = 'player-input';
             div.innerHTML = `
-                <input type="text" value="${number}" readonly>
+                <input type="text" value="${number}" >
                 ${Array(3).fill().map((_, idx) => `
                     <select>
                         ${allPositions.map(pos => `
