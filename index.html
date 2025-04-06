@@ -602,6 +602,7 @@
             collapseRoster();
             localStorage.setItem('lastLineup', JSON.stringify(innings));
             displayResults(innings);
+            displayPlayerSummary(players);
         }
 
         function displayResults(innings) {
@@ -634,6 +635,29 @@
             document.getElementById('results').style.display = 'block';
         }
 
+        function displayPlayerSummary(players) {
+            const summaryContainer = document.getElementById('playerSummary');
+            summaryContainer.innerHTML = players.map(player => `
+                <div class="player-summary-item">
+                    <div class="player-summary-name">${player.name}</div>
+                    <div class="player-summary-positions">
+                        ${Object.entries(player.stats.positions)
+                            .filter(([_, count]) => count > 0)
+                            .map(([pos, count]) => `
+                                <div class="position-pill">
+                                    ${pos} ×${count}
+                                </div>
+                            `).join('')}
+                        ${player.stats.sit > 0 ? `
+                            <div class="position-pill" style="background-color: #e74c3c;">
+                                Sat ×${player.stats.sit}
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
         function shuffleArray(array) {
             for (let i = array.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
@@ -645,6 +669,15 @@
         // Initialize on load
         initializePlayers();
         updatePositionCounts();
+        
+        // Update player stats initialization
+        players.forEach(player => {
+            allPositions.forEach(pos => {
+                player.stats.positions[pos] = 0;
+                player.stats.positionCounts[pos] = 0;
+            });
+            player.stats.positionHistory = [];
+        });
     </script>
 </body>
 </html>
