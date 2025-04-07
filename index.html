@@ -639,6 +639,11 @@
                     Object.entries(player.stats.positions).forEach(([pos, count]) => {
                         if(count > 3) validationErrors.push(`${player.name} played ${pos} ${count} times`);
                     });
+
+                    // Check someone is assigned every inning
+                    if(player.stats.sitCount + player.stats.infieldCount + player.stats.outfieldCount != 6) {
+                        validationErrors.push(`${player.name} was not assigned a position every inning`);
+                    }
                     
                     // Check outfield limits for players who sat twice
                     if(player.stats.sitCount >= 2 && player.stats.outfieldCount > 2) {
