@@ -183,6 +183,10 @@
             font-size: 0.9em;
         }
 
+        .position-pill.outfield {
+            background-color: #1a5276; /* Darker blue for outfield */
+        }
+
         .position-counts {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
@@ -434,7 +438,7 @@
             const players = [];
             const inputs = document.querySelectorAll('.player-input');
             
-            // Initialize players with grab bags
+            // Initialize players
             inputs.forEach(input => {
                 const name = input.children[0].value.trim();
                 const prefs = Array.from(input.querySelectorAll('select')).map(s => s.value);
@@ -453,49 +457,54 @@
                     });
                 }
             });
-        
+
             if (players.length < 10) {
                 alert('Minimum 10 players required');
                 return;
             }
-        
-            // Initialize grab bags
+
+            // Initialize grab bags and calculate total sits needed
+            const totalPlayers = players.length;
+            const totalSits = (totalPlayers - 10) * 6;
+            let sitsAssigned = 0;
+
+            // Calculate sitting schedule for entire game upfront
+            while (sitsAssigned < totalSits) {
+                // Sort by least sits first, then by most remaining positions
+                const candidates = players
+                    .filter(p => p.stats.sitCount < Math.ceil(totalSits / totalPlayers))
+                    .sort((a, b) => 
+                        a.stats.sitCount - b.stats.sitCount || 
+                        b.grabBag.length - a.grabBag.length
+                    );
+
+                if (candidates.length > 0) {
+                    candidates[0].stats.sitCount++;
+                    sitsAssigned++;
+                } else {
+                    break; // Shouldn't happen with proper math
+                }
+            }
+
+            // Fill grab bags (3 per preferred position)
             players.forEach(player => {
-                // Reset stats
-                player.stats.positions = {};
-                player.stats.usedOutfields = 0;
-                player.stats.sitCount = 0;
-                player.stats.infieldCount = 0;
-                player.stats.outfieldCount = 0;
-                
-                // Create grab bag with 3 entries per preferred position
                 player.grabBag = [];
                 player.preferences.forEach(pos => {
-                    for(let i = 0; i < 3; i++) {
+                    for (let i = 0; i < 3; i++) {
                         player.grabBag.push(pos);
                     }
                 });
                 shuffleArray(player.grabBag);
             });
-        
+
             const innings = [];
-            const totalPlayers = players.length;
-            const sitsPerInning = totalPlayers - 10;
-        
-            for(let inningNum = 1; inningNum <= 6; inningNum++) {
-                // Select players to sit
-                let sitting = [];
-                const candidates = shuffleArray(players)
-                    .sort((a, b) => a.stats.sitCount - b.stats.sitCount)
-                    .slice(0, sitsPerInning);
-                
-                sitting = candidates;
-                sitting.forEach(p => p.stats.sitCount++);
-        
+            
+            for (let inningNum = 1; inningNum <= 6; inningNum++) {
+                const sitting = players.filter(p => p.stats.sitCount >= inningNum);
                 const playing = players.filter(p => !sitting.includes(p));
                 const assignments = {};
                 
-                // Shuffle infield and outfield separately, then combine
+                // Process positions - infield first then outfield
                 const shuffledInfield = shuffleArray([...infieldPositions]);
                 const shuffledOutfield = shuffleArray([...outfieldPositions]);
                 const positionOrder = [...shuffledInfield, ...shuffledOutfield];
@@ -510,69 +519,39 @@
                     );
 
                     // Priority sorting
-                    candidates.sort((a, b) => {                        
-                        // 2nd: Most instances of this position
+                    candidates.sort((a, b) => {
+                        // Players who will sit more get priority
+                        if (b.stats.sitCount !== a.stats.sitCount) return b.stats.sitCount - a.stats.sitCount;
+                        
+                        // Then most instances of this position
                         const aPosCount = a.grabBag.filter(p => p === pos).length;
                         const bPosCount = b.grabBag.filter(p => p === pos).length;
                         if (bPosCount !== aPosCount) return bPosCount - aPosCount;
-            
-                        // 3rd: Most infield positions remaining
+
+                        // Then most infield positions remaining
                         const aInfieldCount = a.grabBag.filter(p => infieldPositions.includes(p)).length;
                         const bInfieldCount = b.grabBag.filter(p => infieldPositions.includes(p)).length;
                         if (bInfieldCount !== aInfieldCount) return bInfieldCount - aInfieldCount;
 
-                        // 1st: Players who have sat the most
-                        if (b.stats.sitCount !== a.stats.sitCount) return b.stats.sitCount - a.stats.sitCount;
-                        
-                        // 4th: Most total remaining
+                        // Then most total remaining
                         return b.grabBag.length - a.grabBag.length;
                     });
-        
-                    // Try preferred positions first
-                    let validCandidates = candidates.filter(p => p.grabBag.includes(pos));
-        
-                    if(validCandidates.length === 0) {
-                        validCandidates = candidates;
-                    }
-        
-                    if(validCandidates.length > 0) {
-                        // Take first candidate from sorted list
-                        const player = validCandidates[0];
+
+                    if (candidates.length > 0) {
+                        const player = candidates[0];
                         assignments[pos] = player.name;
                         
-                        // Update grab bag - remove first instance of this position
+                        // Remove from grab bag
                         const posIndex = player.grabBag.indexOf(pos);
-                        if(posIndex > -1) {
-                            player.grabBag.splice(posIndex, 1);
-                        }
+                        if (posIndex > -1) player.grabBag.splice(posIndex, 1);
                         
                         // Update stats
                         player.stats.positions[pos] = (player.stats.positions[pos] || 0) + 1;
-                        if(isInfield) {
+                        if (isInfield) {
                             player.stats.infieldCount++;
                         } else {
                             player.stats.outfieldCount++;
                             player.stats.usedOutfields++;
-                        }
-                    }
-                });
-        
-                // Fallback for unassigned positions
-                positionOrder.forEach(pos => {
-                    if(!assignments[pos]) {
-                        const available = playing.filter(p => 
-                            !Object.values(assignments).includes(p.name)
-                        );
-                        if(available.length > 0) {
-                            const player = available[Math.floor(Math.random() * available.length)];
-                            assignments[pos] = player.name;
-                            player.stats.positions[pos] = (player.stats.positions[pos] || 0) + 1;
-                            if(infieldPositions.includes(pos)) {
-                                player.stats.infieldCount++;
-                            } else {
-                                player.stats.outfieldCount++;
-                                player.stats.usedOutfields++;
-                            }
                         }
                     }
                 });
@@ -646,13 +625,13 @@
                         ${Object.entries(player.stats.positions)
                             .filter(([_, count]) => count > 0)
                             .map(([pos, count]) => `
-                                <div class="position-pill">
+                                <div class="position-pill ${outfieldPositions.includes(pos) ? 'outfield' : ''}">
                                     ${pos} ×${count}
                                 </div>
                             `).join('')}
                         ${player.stats.sitCount > 0 ? `
                             <div class="position-pill" style="background-color: #e74c3c;">
-                                Sitting ×${player.stats.sitCount}
+                                Sat ×${player.stats.sitCount}
                             </div>
                         ` : ''}
                     </div>
