@@ -510,10 +510,7 @@
                     );
 
                     // Priority sorting
-                    candidates.sort((a, b) => {
-                        // 1st: Players who have sat the most
-                        if (b.stats.sitCount !== a.stats.sitCount) return b.stats.sitCount - a.stats.sitCount;
-                        
+                    candidates.sort((a, b) => {                        
                         // 2nd: Most instances of this position
                         const aPosCount = a.grabBag.filter(p => p === pos).length;
                         const bPosCount = b.grabBag.filter(p => p === pos).length;
@@ -523,7 +520,10 @@
                         const aInfieldCount = a.grabBag.filter(p => infieldPositions.includes(p)).length;
                         const bInfieldCount = b.grabBag.filter(p => infieldPositions.includes(p)).length;
                         if (bInfieldCount !== aInfieldCount) return bInfieldCount - aInfieldCount;
-            
+
+                        // 1st: Players who have sat the most
+                        if (b.stats.sitCount !== a.stats.sitCount) return b.stats.sitCount - a.stats.sitCount;
+                        
                         // 4th: Most total remaining
                         return b.grabBag.length - a.grabBag.length;
                     });
