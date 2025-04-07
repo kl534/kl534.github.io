@@ -527,6 +527,56 @@
                 player.stats.sitCount++;
                 player.stats.lastSatInning = 0;
             });
+
+            // Remaining innings: Random selection with constraints
+            for (let inningNum = 1; inningNum < 6; inningNum++) {
+                let sitsAssigned = 0;
+                let attempts = 0;
+                const maxAttempts = 100;
+                
+                while (sitsAssigned < sitsPerInning && attempts < maxAttempts) {
+                    attempts++;
+                    
+                    // Get eligible players who haven't sat in last 3 innings
+                    const eligiblePlayers = players.filter(p => 
+                        !sittingSchedule[inningNum].includes(p) &&
+                        inningNum - p.stats.lastSatInning >= 3
+                    );
+                    
+                    // Randomly select from players who haven't sat twice yet
+                    const candidates = eligiblePlayers.filter(p => p.stats.sitCount < 2);
+                    
+                    if (candidates.length > 0) {
+                        // Random selection with weight towards players who haven't sat yet
+                        const weights = candidates.map(p => 
+                            p.stats.sitCount === 0 ? 2 : 1 // Higher weight for players who haven't sat
+                        );
+                        const totalWeight = weights.reduce((a, b) => a + b, 0);
+                        let random = Math.random() * totalWeight;
+                        let selectedIndex = 0;
+                        
+                        while (random > weights[selectedIndex]) {
+                            random -= weights[selectedIndex];
+                            selectedIndex++;
+                        }
+                        
+                        const player = candidates[selectedIndex];
+                        sittingSchedule[inningNum].push(player);
+                        player.stats.sitCount++;
+                        player.stats.lastSatInning = inningNum;
+                        sitsAssigned++;
+                    } else {
+                        // If all players have sat twice, select randomly from eligible
+                        if (eligiblePlayers.length > 0) {
+                            const player = eligiblePlayers[Math.floor(Math.random() * eligiblePlayers.length)];
+                            sittingSchedule[inningNum].push(player);
+                            player.stats.sitCount++;
+                            player.stats.lastSatInning = inningNum;
+                            sitsAssigned++;
+                        }
+                    }
+                }
+            }
         
             // Fill grab bags (3 per preferred position)
             players.forEach(player => {
