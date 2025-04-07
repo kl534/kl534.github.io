@@ -580,17 +580,17 @@
                         // Priority sorting
                         const futureSits = sittingSchedule.slice(inningNum + 1);
                         candidates.sort((a, b) => {
-                            // 2nd: Most instances of this position
+                            // 1st: Most instances of this position
                             const aPosCount = a.grabBag.filter(p => p === pos).length;
                             const bPosCount = b.grabBag.filter(p => p === pos).length;
                             if (bPosCount !== aPosCount) return bPosCount - aPosCount;
 
-                            // 3rd: Most infield positions remaining
+                            // 2nd: Most infield positions remaining
                             const aInfieldCount = a.grabBag.filter(p => infieldPositions.includes(p)).length;
                             const bInfieldCount = b.grabBag.filter(p => infieldPositions.includes(p)).length;
                             if (bInfieldCount !== aInfieldCount) return bInfieldCount - aInfieldCount;
 
-                            // 1st: Players who have the most upcoming sits
+                            // 3rd: Players who have the most upcoming sits
                             const aFutureSitCount = sittingSchedule.reduce(
                                 (count, subArr) => count + subArr.filter((x) => x === a).length,
                                 0
