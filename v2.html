@@ -703,25 +703,30 @@
 
         function displayPlayerSummary(players) {
             const summaryContainer = document.getElementById('playerSummary');
-            summaryContainer.innerHTML = players.map(player => `
-                <div class="player-summary-item">
-                    <div class="player-summary-name">${player.name}</div>
-                    <div class="player-summary-positions">
-                        ${Object.entries(player.stats.positions)
-                            .filter(([_, count]) => count > 0)
-                            .map(([pos, count]) => `
+            summaryContainer.innerHTML = players.map(player => {
+                // Sort positions based on allPositions order
+                const sortedPositions = Object.entries(player.stats.positions)
+                    .filter(([_, count]) => count > 0)
+                    .sort((a, b) => allPositions.indexOf(a[0]) - allPositions.indexOf(b[0]));
+        
+                return `
+                    <div class="player-summary-item">
+                        <div class="player-summary-name">${player.name}</div>
+                        <div class="player-summary-positions">
+                            ${sortedPositions.map(([pos, count]) => `
                                 <div class="position-pill ${outfieldPositions.includes(pos) ? 'outfield' : ''}">
                                     ${pos} ×${count}
                                 </div>
                             `).join('')}
-                        ${player.stats.sitCount > 0 ? `
-                            <div class="position-pill" style="background-color: #e74c3c;">
-                                Sat ×${player.stats.sitCount}
-                            </div>
-                        ` : ''}
+                            ${player.stats.sitCount > 0 ? `
+                                <div class="position-pill" style="background-color: #e74c3c;">
+                                    Sat ×${player.stats.sitCount}
+                                </div>
+                            ` : ''}
+                        </div>
                     </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
         function generateShareLink() {
