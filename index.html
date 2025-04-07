@@ -451,41 +451,69 @@
                             positions: {},
                             usedOutfields: 0,
                             sitCount: 0,
+                            lastSatInning: -3, // Initialize to allow sitting in first inning
                             infieldCount: 0,
                             outfieldCount: 0
                         }
                     });
                 }
             });
-
+        
             if (players.length < 10) {
                 alert('Minimum 10 players required');
                 return;
             }
-
-            // Initialize grab bags and calculate total sits needed
+        
             const totalPlayers = players.length;
-            const totalSits = (totalPlayers - 10) * 6;
-            let sitsAssigned = 0;
-
-            // Calculate sitting schedule for entire game upfront
-            while (sitsAssigned < totalSits) {
-                // Sort by least sits first, then by most remaining positions
-                const candidates = players
-                    .filter(p => p.stats.sitCount < Math.ceil(totalSits / totalPlayers))
-                    .sort((a, b) => 
-                        a.stats.sitCount - b.stats.sitCount || 
-                        b.grabBag.length - a.grabBag.length
-                    );
-
-                if (candidates.length > 0) {
-                    candidates[0].stats.sitCount++;
-                    sitsAssigned++;
-                } else {
-                    break; // Shouldn't happen with proper math
+            const sitsPerInning = totalPlayers - 10;
+            const innings = [];
+            
+            // Generate sitting schedule upfront with 3-inning cooldown
+            const sittingSchedule = Array(6).fill().map(() => []);
+            const availablePlayers = [...players];
+            
+            for (let inningNum = 0; inningNum < 6; inningNum++) {
+                let sitsAssigned = 0;
+                let attempts = 0;
+                const maxAttempts = 100;
+                
+                while (sitsAssigned < sitsPerInning && attempts < maxAttempts) {
+                    attempts++;
+                    
+                    // Find players eligible to sit this inning
+                    const candidates = players
+                        .filter(p => 
+                            !sittingSchedule[inningNum].includes(p) &&
+                            (inningNum - p.stats.lastSatInning >= 3) &&
+                            p.stats.sitCount < Math.ceil(6 * sitsPerInning / totalPlayers) + 1
+                        )
+                        .sort((a, b) => 
+                            a.stats.sitCount - b.stats.sitCount || // Fewest sits first
+                            b.grabBag.length - a.grabBag.length // Most remaining positions
+                        );
+                    
+                    if (candidates.length > 0) {
+                        const player = candidates[0];
+                        sittingSchedule[inningNum].push(player);
+                        player.stats.sitCount++;
+                        player.stats.lastSatInning = inningNum;
+                        sitsAssigned++;
+                    } else {
+                        // If no candidates, find player with oldest sit
+                        const fallback = players
+                            .filter(p => !sittingSchedule[inningNum].includes(p))
+                            .sort((a, b) => a.stats.lastSatInning - b.stats.lastSatInning)[0];
+                        
+                        if (fallback) {
+                            sittingSchedule[inningNum].push(fallback);
+                            fallback.stats.sitCount++;
+                            fallback.stats.lastSatInning = inningNum;
+                            sitsAssigned++;
+                        }
+                    }
                 }
             }
-
+        
             // Fill grab bags (3 per preferred position)
             players.forEach(player => {
                 player.grabBag = [];
@@ -496,11 +524,10 @@
                 });
                 shuffleArray(player.grabBag);
             });
-
-            const innings = [];
-            
-            for (let inningNum = 1; inningNum <= 6; inningNum++) {
-                const sitting = players.filter(p => p.stats.sitCount >= inningNum);
+        
+            // Generate lineups using pre-determined sitting schedule
+            for (let inningNum = 0; inningNum < 6; inningNum++) {
+                const sitting = sittingSchedule[inningNum];
                 const playing = players.filter(p => !sitting.includes(p));
                 const assignments = {};
                 
@@ -508,7 +535,7 @@
                 const shuffledInfield = shuffleArray([...infieldPositions]);
                 const shuffledOutfield = shuffleArray([...outfieldPositions]);
                 const positionOrder = [...shuffledInfield, ...shuffledOutfield];
-
+        
                 positionOrder.forEach(pos => {
                     const isInfield = infieldPositions.includes(pos);
                     let candidates = playing.filter(p => 
@@ -517,26 +544,26 @@
                         (!isInfield || p.preferences.includes(pos)) &&
                         (p.stats.sitCount < 2 || p.stats.usedOutfields < 1 || !isInfield)
                     );
-
-                    // Priority sorting
+        
+                    // Updated priority sorting (sit count moved to 3rd)
                     candidates.sort((a, b) => {
-                        // Players who will sit more get priority
-                        if (b.stats.sitCount !== a.stats.sitCount) return b.stats.sitCount - a.stats.sitCount;
-                        
-                        // Then most instances of this position
+                        // 1st: Most instances of this position
                         const aPosCount = a.grabBag.filter(p => p === pos).length;
                         const bPosCount = b.grabBag.filter(p => p === pos).length;
                         if (bPosCount !== aPosCount) return bPosCount - aPosCount;
-
-                        // Then most infield positions remaining
+        
+                        // 2nd: Most infield positions remaining
                         const aInfieldCount = a.grabBag.filter(p => infieldPositions.includes(p)).length;
                         const bInfieldCount = b.grabBag.filter(p => infieldPositions.includes(p)).length;
                         if (bInfieldCount !== aInfieldCount) return bInfieldCount - aInfieldCount;
-
-                        // Then most total remaining
+        
+                        // 3rd: Players who have sat more
+                        if (b.stats.sitCount !== a.stats.sitCount) return b.stats.sitCount - a.stats.sitCount;
+        
+                        // 4th: Most total remaining
                         return b.grabBag.length - a.grabBag.length;
                     });
-
+        
                     if (candidates.length > 0) {
                         const player = candidates[0];
                         assignments[pos] = player.name;
@@ -555,9 +582,9 @@
                         }
                     }
                 });
-
+        
                 innings.push({
-                    inning: inningNum,
+                    inning: inningNum + 1,
                     sitting: sitting.map(p => p.name),
                     assignments: {...assignments}
                 });
