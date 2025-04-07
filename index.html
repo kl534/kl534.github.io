@@ -434,6 +434,24 @@
             }
         }
 
+        function updatePlayerState(players, inning) {
+            return players.map(player => {
+                const newPlayer = {...player};
+                // Update sit count
+                if (inning.sitting.includes(player.name)) {
+                    newPlayer.stats.sitCount++;
+                    newPlayer.stats.lastSatInning = inning.inning;
+                }
+                // Update positions
+                Object.entries(inning.assignments).forEach(([pos, name]) => {
+                    if (name === player.name) {
+                        newPlayer.stats.positions[pos] = (newPlayer.stats.positions[pos] || 0) + 1;
+                    }
+                });
+                return newPlayer;
+            });
+        }
+
         function reconstructPlayerStats(originalPlayers, innings) {
             const players = originalPlayers.map(p => ({
                 ...p,
@@ -472,11 +490,21 @@
         function generateLineup() {
             const MAX_RETRIES = 10;
             let lineupAttempts = 0;
+            const originalPlayers = Array.from(document.querySelectorAll('.player-input')).map(input => {
+                return {
+                    name: input.children[0].value.trim(),
+                    preferences: Array.from(input.querySelectorAll('select')).map(s => s.value),
+                    stats: {
+                        positions: {},
+                        sitCount: 0,
+                        lastSatInning: -3
+                    }
+                };
+            });
         
-            function generateInning(inningNum, previousInnings, depth = 0) {
-                if (depth > MAX_RETRIES) return null;
-        
-                const players = JSON.parse(JSON.stringify(originalPlayers)); // Deep clone
+            function generateInning(inningNum, previousInnings, playersState, depth = 0) {
+                // Clone players from preserved state
+                const players = JSON.parse(JSON.stringify(playersState));
                 const inning = {
                     inning: inningNum,
                     sitting: [],
@@ -585,12 +613,13 @@
                     let valid = true;
                     
                     for (let i = 1; i <= 6; i++) {
-                        const inning = generateInning(i, innings.slice());
+                        const inning = generateInning(i, innings, currentPlayersState);
                         if (!inning) {
                             valid = false;
                             break;
                         }
                         innings.push(inning);
+                        currentPlayersState = updatePlayerState(currentPlayersState, inning);
                     }
             
                     if (valid) {
