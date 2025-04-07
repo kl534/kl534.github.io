@@ -434,207 +434,237 @@
             }
         }
 
-        function updatePlayerState(players, inning) {
-            return players.map(player => {
-                const newPlayer = {...player};
-                // Update sit count
-                if (inning.sitting.includes(player.name)) {
-                    newPlayer.stats.sitCount++;
-                    newPlayer.stats.lastSatInning = inning.inning;
-                }
-                // Update positions
-                Object.entries(inning.assignments).forEach(([pos, name]) => {
-                    if (name === player.name) {
-                        newPlayer.stats.positions[pos] = (newPlayer.stats.positions[pos] || 0) + 1;
-                    }
-                });
-                return newPlayer;
-            });
-        }
-
-        function reconstructPlayerStats(originalPlayers, innings) {
-            const players = originalPlayers.map(p => ({
-                ...p,
-                stats: {
-                    positions: {},
-                    sitCount: 0,
-                    infieldCount: 0,
-                    outfieldCount: 0
-                }
-            }));
-        
-            innings.forEach(inning => {
-                // Count sits
-                inning.sitting.forEach(name => {
-                    const player = players.find(p => p.name === name);
-                    if (player) player.stats.sitCount++;
-                });
-        
-                // Count positions
-                Object.entries(inning.assignments).forEach(([pos, name]) => {
-                    const player = players.find(p => p.name === name);
-                    if (player) {
-                        player.stats.positions[pos] = (player.stats.positions[pos] || 0) + 1;
-                        if (infieldPositions.includes(pos)) {
-                            player.stats.infieldCount++;
-                        } else {
-                            player.stats.outfieldCount++;
-                        }
-                    }
-                });
-            });
-        
-            return players;
-        }
-
         function generateLineup() {
-            const MAX_RETRIES = 10;
-            let lineupAttempts = 0;
-            const originalPlayers = Array.from(document.querySelectorAll('.player-input')).map(input => {
-                return {
-                    name: input.children[0].value.trim(),
-                    preferences: Array.from(input.querySelectorAll('select')).map(s => s.value),
-                    stats: {
-                        positions: {},
-                        sitCount: 0,
-                        lastSatInning: -3
+            let validLineup = false;
+            let iteration = 0;
+            const innings = [];
+            const players = [];
+            let validationErrors = [];
+
+            while (!validLineup && iteration < 100) {
+                innings.length = 0;
+                players.length = 0;
+                validationErrors.length = 0;
+
+                const inputs = document.querySelectorAll('.player-input');
+                
+                // Initialize players
+                inputs.forEach(input => {
+                    const name = input.children[0].value.trim();
+                    const prefs = Array.from(input.querySelectorAll('select')).map(s => s.value);
+                    if (name) {
+                        players.push({
+                            name,
+                            preferences: prefs,
+                            grabBag: [],
+                            stats: {
+                                positions: {},
+                                sitCount: 0,
+                                lastSatInning: -4, // Initialize to allow sitting in first inning
+                                infieldCount: 0,
+                                outfieldCount: 0
+                            }
+                        });
                     }
-                };
-            });
-        
-            function generateInning(inningNum, previousInnings, playersState, depth = 0) {
-                // Clone players from preserved state
-                const players = JSON.parse(JSON.stringify(playersState));
-                const inning = {
-                    inning: inningNum,
-                    sitting: [],
-                    assignments: {}
-                };
-        
-                // Remove previous inning's impact
-                previousInnings.forEach(prevInning => {
-                    prevInning.sitting.forEach(playerName => {
-                        const player = players.find(p => p.name === playerName);
-                        if (player) player.stats.sitCount--;
-                    });
                 });
-        
-                // Optimize position coverage
-                const positionOrder = optimizePositionOrder(players);
+            
+                if (players.length < 10) {
+                    alert('Minimum 10 players required');
+                    return;
+                }
+            
+                const totalPlayers = players.length;
+                const sitsPerInning = totalPlayers - 10;
                 
-                let isValid = false;
-                let attempts = 0;
+                // Generate sitting schedule upfront with cooldown
+                const coolDown = 3; // min innings between sit
+                const sittingSchedule = Array(6).fill().map(() => []);
                 
-                while (!isValid && attempts < MAX_RETRIES) {
-                    attempts++;
-                    const tempPlayers = JSON.parse(JSON.stringify(players));
-                    const tempAssignments = {};
-                    let success = true;
-        
-                    positionOrder.forEach(pos => {
-                        const candidates = getBestCandidates(tempPlayers, pos);
-                        if (candidates.length === 0) {
-                            success = false;
-                            return;
+                for (let inningNum = 0; inningNum < 6; inningNum++) {
+                    const counts = players.map(obj => obj.stats.sitCount);
+                    const minCount = Math.min(...counts);
+                    let sittingCandidates = players.filter(obj => obj.stats.sitCount === minCount && obj.stats.lastSatInning < inningNum - coolDown);
+                    const selectedSitters = [];
+                    let coverageSet = new Set();
+
+                    if (sittingCandidates.length < sitsPerInning) {
+                        // Remaining candidates all get added
+                        selectedSitters.push(...sittingCandidates);
+                        sittingCandidates = players.filter(obj => obj.stats.sitCount !== minCount && obj.stats.lastSatInning < inningNum - coolDown);
+                    } else {
+                        // 1. Select first random player
+                        if (sittingCandidates.length > 0) {
+                            const randomIndex = Math.floor(Math.random() * sittingCandidates.length);
+                            const firstPlayer = sittingCandidates.splice(randomIndex, 1)[0];
+                            selectedSitters.push(firstPlayer);
+                            firstPlayer.preferences.forEach(p => coverageSet.add(p));
                         }
-                        
-                        const selected = candidates[Math.floor(Math.random() * candidates.length)];
-                        tempAssignments[pos] = selected.name;
-                        selected.grabBag = selected.grabBag.filter(p => p !== pos);
-                        selected.stats.positions[pos] = (selected.stats.positions[pos] || 0) + 1;
-                    });
-        
-                    if (success && Object.keys(tempAssignments).length === 10) {
-                        isValid = true;
-                        inning.assignments = tempAssignments;
-                        inning.sitting = tempPlayers
-                            .filter(p => !Object.values(tempAssignments).includes(p.name))
-                            .map(p => p.name);
                     }
-                }
-        
-                if (!isValid) {
-                    if (inningNum > 1) {
-                        const prevInning = generateInning(inningNum - 1, previousInnings.slice(0, -1), depth + 1);
-                        if (!prevInning) return null;
-                        return generateInning(inningNum, [...previousInnings, prevInning], depth + 1);
-                    }
-                    return null;
-                }
-        
-                return inning;
-            }
-        
-            function optimizePositionOrder(players) {
-                // Calculate position coverage needs
-                const coverage = {};
-                allPositions.forEach(pos => {
-                    coverage[pos] = players.filter(p => 
-                        p.grabBag.includes(pos) && 
-                        p.stats.positions[pos] < 3
-                    ).length;
-                });
-        
-                // Sort positions by scarcity (least available first)
-                return Object.entries(coverage)
-                    .sort((a, b) => a[1] - b[1])
-                    .map(([pos]) => pos);
-            }
-        
-            function getBestCandidates(players, pos) {
-                return players
-                    .filter(p => 
-                        !Object.values(inning.assignments).includes(p.name) &&
-                        p.grabBag.includes(pos) &&
-                        p.stats.positions[pos] < 3
-                    )
-                    .sort((a, b) => {
-                        // Priority 1: Players covering multiple needed positions
-                        const aCoverage = a.grabBag.filter(p => 
-                            coverage[p] < 2 && p !== pos
-                        ).length;
-                        const bCoverage = b.grabBag.filter(p => 
-                            coverage[p] < 2 && p !== pos
-                        ).length;
-                        
-                        // Priority 2: Position preference count
-                        const aPrefCount = a.preferences.filter(p => p === pos).length;
-                        const bPrefCount = b.preferences.filter(p => p === pos).length;
-        
-                        // Priority 3: Previous sits
-                        return (bPrefCount - aPrefCount) || (bCoverage - aCoverage);
-                    });
-            }
-        
-                // Main generation loop
-                while (lineupAttempts < MAX_RETRIES) {
-                    lineupAttempts++;
-                    const innings = [];
-                    let valid = true;
-                    
-                    for (let i = 1; i <= 6; i++) {
-                        const inning = generateInning(i, innings, currentPlayersState);
-                        if (!inning) {
-                            valid = false;
+
+                    // 2. Select subsequent players to maximize coverage
+                    while (selectedSitters.length < sitsPerInning && sittingCandidates.length > 0) {
+                        let bestCandidate = null;
+                        let bestNewCoverage = -1;
+                        const candidates = [];
+
+                        // Find candidates with maximum new coverage
+                        sittingCandidates.forEach(player => {
+                            const newCoverage = player.preferences.filter(p => !coverageSet.has(p)).length;
+                            if (newCoverage > bestNewCoverage) {
+                                bestNewCoverage = newCoverage;
+                                candidates.length = 0;
+                                candidates.push(player);
+                            } else if (newCoverage === bestNewCoverage) {
+                                candidates.push(player);
+                            }
+                        });
+
+                        // Random select from best candidates
+                        if (candidates.length > 0) {
+                            bestCandidate = candidates[Math.floor(Math.random() * candidates.length)];
+                            const index = sittingCandidates.indexOf(bestCandidate);
+                            sittingCandidates.splice(index, 1);
+                            selectedSitters.push(bestCandidate);
+                            bestCandidate.preferences.forEach(p => coverageSet.add(p));
+                        } else {
                             break;
                         }
-                        innings.push(inning);
-                        currentPlayersState = updatePlayerState(currentPlayersState, inning);
                     }
-            
-                    if (valid) {
-                        // Reconstruct player stats from generated innings
-                        const playersWithStats = reconstructPlayerStats(players, innings);
-                        
-                        localStorage.setItem('lastLineup', JSON.stringify(innings));
-                        displayResults(innings);
-                        displayPlayerSummary(playersWithStats); // Add this line
-                        return;
+
+                    // 3. Fill remaining spots with random players if needed
+                    while (selectedSitters.length < sitsPerInning && sittingCandidates.length > 0) {
+                        const randomIndex = Math.floor(Math.random() * sittingCandidates.length);
+                        const player = sittingCandidates.splice(randomIndex, 1)[0];
+                        selectedSitters.push(player);
                     }
+
+                    // Assign inning sits
+                    selectedSitters.forEach(player => {
+                        sittingSchedule[inningNum].push(player);
+                        player.stats.sitCount++;
+                        player.stats.lastSatInning = inningNum;
+                    });
                 }
-                alert('Could not generate valid lineup after maximum attempts');
+            
+                // Fill grab bags (3 per preferred position)
+                players.forEach(player => {
+                    player.grabBag = [];
+                    player.preferences.forEach(pos => {
+                        for (let i = 0; i < 3; i++) {
+                            player.grabBag.push(pos);
+                        }
+                    });
+                    shuffleArray(player.grabBag);
+                });
+            
+                // Generate lineups using pre-determined sitting schedule
+                for (let inningNum = 0; inningNum < 6; inningNum++) {
+                    const sitting = sittingSchedule[inningNum];
+                    const playing = players.filter(p => !sitting.includes(p));
+                    const assignments = {};
+                    
+                    // Process positions - infield first then outfield
+                    const shuffledInfield = shuffleArray([...infieldPositions]);
+                    const shuffledOutfield = shuffleArray([...outfieldPositions]);
+                    const positionOrder = [...shuffledInfield, ...shuffledOutfield];
+            
+                    positionOrder.forEach(pos => {
+                        const isInfield = infieldPositions.includes(pos);
+                        let candidates = playing.filter(p => 
+                            !Object.values(assignments).includes(p.name) &&
+                            p.grabBag.length > 0 &&
+                            (!isInfield || p.preferences.includes(pos)) &&
+                            (p.stats.sitCount < 2 || p.stats.outfieldCount < 1 || !isInfield)
+                        );
+            
+                        // Priority sorting
+                        const futureSits = sittingSchedule.slice(inningNum + 1);
+                        candidates.sort((a, b) => {
+                            // 2nd: Most instances of this position
+                            const aPosCount = a.grabBag.filter(p => p === pos).length;
+                            const bPosCount = b.grabBag.filter(p => p === pos).length;
+                            if (bPosCount !== aPosCount) return bPosCount - aPosCount;
+
+                            // 3rd: Most infield positions remaining
+                            const aInfieldCount = a.grabBag.filter(p => infieldPositions.includes(p)).length;
+                            const bInfieldCount = b.grabBag.filter(p => infieldPositions.includes(p)).length;
+                            if (bInfieldCount !== aInfieldCount) return bInfieldCount - aInfieldCount;
+
+                            // 1st: Players who have the most upcoming sits
+                            const aFutureSitCount = sittingSchedule.reduce(
+                                (count, subArr) => count + subArr.filter((x) => x === a).length,
+                                0
+                            );
+                            const bFutureSitCount = sittingSchedule.reduce(
+                                (count, subArr) => count + subArr.filter((x) => x === b).length,
+                                0
+                            );
+                            if (bFutureSitCount !== aFutureSitCount) return bFutureSitCount - aFutureSitCount;
+            
+                            // 4th: Most sits
+                            if (b.stats.sitCount !== a.stats.sitCount) return b.stats.sitCount - a.stats.sitCount;
+
+                            // 5th: Most total remaining
+                            return b.grabBag.length - a.grabBag.length;
+                        });
+            
+                        if (candidates.length > 0) {
+                            const player = candidates[0];
+                            assignments[pos] = player.name;
+                            
+                            // Remove from grab bag
+                            const posIndex = player.grabBag.indexOf(pos);
+                            if (posIndex > -1) player.grabBag.splice(posIndex, 1);
+                            
+                            // Update stats
+                            player.stats.positions[pos] = (player.stats.positions[pos] || 0) + 1;
+                            if (isInfield) {
+                                player.stats.infieldCount++;
+                            } else {
+                                player.stats.outfieldCount++;
+                            }
+                        }
+                    });
+            
+                    innings.push({
+                        inning: inningNum + 1,
+                        sitting: sitting.map(p => p.name),
+                        assignments: {...assignments}
+                    });
+                }
+
+                // Validation and error handling
+                players.forEach(player => {
+                    // Check position limits
+                    Object.entries(player.stats.positions).forEach(([pos, count]) => {
+                        if(count > 3) validationErrors.push(`${player.name} played ${pos} ${count} times`);
+                    });
+                    
+                    // Check outfield limits for players who sat twice
+                    if(player.stats.sitCount >= 2 && player.stats.outfieldCount > 2) {
+                        validationErrors.push(`${player.name} sat ${player.stats.sitCount} times but got ${player.stats.outfieldCount} OF assignments`);
+                    }
+
+                    // Check infield/outfield opportunities
+                    if(player.stats.outfieldCount < 1 || player.stats.infieldCount < 1) {
+                        validationErrors.push(`${player.name} did not get an IF and OF assignment`);
+                    }
+                });
+        
+                if(validationErrors.length === 0) {
+                    validLineup = true;
+                }
+                iteration++;
             }
 
+            if (!validLineup) {
+                alert('Lineup issues:\n' + validationErrors.join('\n'));
+            }
+        
+            localStorage.setItem('lastLineup', JSON.stringify(innings));
+            displayResults(innings);
+            displayPlayerSummary(players);
+        }
 
         function displayResults(innings) {
             const output = document.getElementById('inningsOutput');
