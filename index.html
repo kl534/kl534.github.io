@@ -434,6 +434,41 @@
             }
         }
 
+        function reconstructPlayerStats(originalPlayers, innings) {
+            const players = originalPlayers.map(p => ({
+                ...p,
+                stats: {
+                    positions: {},
+                    sitCount: 0,
+                    infieldCount: 0,
+                    outfieldCount: 0
+                }
+            }));
+        
+            innings.forEach(inning => {
+                // Count sits
+                inning.sitting.forEach(name => {
+                    const player = players.find(p => p.name === name);
+                    if (player) player.stats.sitCount++;
+                });
+        
+                // Count positions
+                Object.entries(inning.assignments).forEach(([pos, name]) => {
+                    const player = players.find(p => p.name === name);
+                    if (player) {
+                        player.stats.positions[pos] = (player.stats.positions[pos] || 0) + 1;
+                        if (infieldPositions.includes(pos)) {
+                            player.stats.infieldCount++;
+                        } else {
+                            player.stats.outfieldCount++;
+                        }
+                    }
+                });
+            });
+        
+            return players;
+        }
+
         function generateLineup() {
             const MAX_RETRIES = 10;
             let lineupAttempts = 0;
@@ -543,31 +578,33 @@
                     });
             }
         
-            // Main generation loop
-            while (lineupAttempts < MAX_RETRIES) {
-                lineupAttempts++;
-                const innings = [];
-                let valid = true;
-                
-                for (let i = 1; i <= 6; i++) {
-                    const inning = generateInning(i, innings.slice());
-                    if (!inning) {
-                        valid = false;
-                        break;
+                // Main generation loop
+                while (lineupAttempts < MAX_RETRIES) {
+                    lineupAttempts++;
+                    const innings = [];
+                    let valid = true;
+                    
+                    for (let i = 1; i <= 6; i++) {
+                        const inning = generateInning(i, innings.slice());
+                        if (!inning) {
+                            valid = false;
+                            break;
+                        }
+                        innings.push(inning);
                     }
-                    innings.push(inning);
+            
+                    if (valid) {
+                        // Reconstruct player stats from generated innings
+                        const playersWithStats = reconstructPlayerStats(players, innings);
+                        
+                        localStorage.setItem('lastLineup', JSON.stringify(innings));
+                        displayResults(innings);
+                        displayPlayerSummary(playersWithStats); // Add this line
+                        return;
+                    }
                 }
-        
-                if (valid) {
-                    localStorage.setItem('lastLineup', JSON.stringify(innings));
-                    displayResults(innings);
-                    displayPlayerSummary(players);
-                    return;
-                }
+                alert('Could not generate valid lineup after maximum attempts');
             }
-        
-            alert('Could not generate valid lineup after maximum attempts');
-        }
 
 
         function displayResults(innings) {
