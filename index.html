@@ -471,79 +471,62 @@
             // Generate sitting schedule upfront with 3-inning cooldown
             const sittingSchedule = Array(6).fill().map(() => []);
             
-            // First inning: Select players to maximize position preference coverage
+            // First inning: Hybrid random + coverage selection
             const firstInningCandidates = [...players];
-            
-            // Calculate position coverage for each player
-            const positionCoverage = {};
-            firstInningCandidates.forEach(player => {
-                positionCoverage[player.name] = new Set(player.preferences).size;
-            });
-            
-            // Sort by coverage (most unique positions first) then randomize
-            firstInningCandidates.sort((a, b) => {
-                const coverageDiff = positionCoverage[b.name] - positionCoverage[a.name];
-                if (coverageDiff !== 0) return coverageDiff;
-                return Math.random() - 0.5; // Randomize within same coverage level
-            });
-            
-            // Select sitsPerInning players for first inning
-            for (let i = 0; i < sitsPerInning && i < firstInningCandidates.length; i++) {
-                const player = firstInningCandidates[i];
+            const selectedSitters = [];
+            let coverageSet = new Set();
+        
+            // 1. Select first random player
+            if (firstInningCandidates.length > 0) {
+                const randomIndex = Math.floor(Math.random() * firstInningCandidates.length);
+                const firstPlayer = firstInningCandidates.splice(randomIndex, 1)[0];
+                selectedSitters.push(firstPlayer);
+                firstPlayer.preferences.forEach(p => coverageSet.add(p));
+            }
+        
+            // 2. Select subsequent players to maximize coverage
+            while (selectedSitters.length < sitsPerInning && firstInningCandidates.length > 0) {
+                let bestCandidate = null;
+                let bestNewCoverage = -1;
+                const candidates = [];
+        
+                // Find candidates with maximum new coverage
+                firstInningCandidates.forEach(player => {
+                    const newCoverage = player.preferences.filter(p => !coverageSet.has(p)).length;
+                    if (newCoverage > bestNewCoverage) {
+                        bestNewCoverage = newCoverage;
+                        candidates.length = 0;
+                        candidates.push(player);
+                    } else if (newCoverage === bestNewCoverage) {
+                        candidates.push(player);
+                    }
+                });
+        
+                // Random select from best candidates
+                if (candidates.length > 0) {
+                    bestCandidate = candidates[Math.floor(Math.random() * candidates.length)];
+                    const index = firstInningCandidates.indexOf(bestCandidate);
+                    firstInningCandidates.splice(index, 1);
+                    selectedSitters.push(bestCandidate);
+                    bestCandidate.preferences.forEach(p => coverageSet.add(p));
+                } else {
+                    break;
+                }
+            }
+        
+            // 3. Fill remaining spots with random players if needed
+            while (selectedSitters.length < sitsPerInning && firstInningCandidates.length > 0) {
+                const randomIndex = Math.floor(Math.random() * firstInningCandidates.length);
+                const player = firstInningCandidates.splice(randomIndex, 1)[0];
+                selectedSitters.push(player);
+            }
+        
+            // Assign first inning sits
+            selectedSitters.forEach(player => {
                 sittingSchedule[0].push(player);
                 player.stats.sitCount++;
                 player.stats.lastSatInning = 0;
-            }
-        
-            // Remaining innings: Random selection with constraints
-            for (let inningNum = 1; inningNum < 6; inningNum++) {
-                let sitsAssigned = 0;
-                let attempts = 0;
-                const maxAttempts = 100;
-                
-                while (sitsAssigned < sitsPerInning && attempts < maxAttempts) {
-                    attempts++;
-                    
-                    // Get eligible players who haven't sat in last 3 innings
-                    const eligiblePlayers = players.filter(p => 
-                        !sittingSchedule[inningNum].includes(p) &&
-                        inningNum - p.stats.lastSatInning >= 3
-                    );
-                    
-                    // Randomly select from players who haven't sat twice yet
-                    const candidates = eligiblePlayers.filter(p => p.stats.sitCount < 2);
-                    
-                    if (candidates.length > 0) {
-                        // Random selection with weight towards players who haven't sat yet
-                        const weights = candidates.map(p => 
-                            p.stats.sitCount === 0 ? 2 : 1 // Higher weight for players who haven't sat
-                        );
-                        const totalWeight = weights.reduce((a, b) => a + b, 0);
-                        let random = Math.random() * totalWeight;
-                        let selectedIndex = 0;
-                        
-                        while (random > weights[selectedIndex]) {
-                            random -= weights[selectedIndex];
-                            selectedIndex++;
-                        }
-                        
-                        const player = candidates[selectedIndex];
-                        sittingSchedule[inningNum].push(player);
-                        player.stats.sitCount++;
-                        player.stats.lastSatInning = inningNum;
-                        sitsAssigned++;
-                    } else {
-                        // If all players have sat twice, select randomly from eligible
-                        if (eligiblePlayers.length > 0) {
-                            const player = eligiblePlayers[Math.floor(Math.random() * eligiblePlayers.length)];
-                            sittingSchedule[inningNum].push(player);
-                            player.stats.sitCount++;
-                            player.stats.lastSatInning = inningNum;
-                            sitsAssigned++;
-                        }
-                    }
-                }
-            }
+            });
         
             // Fill grab bags (3 per preferred position)
             players.forEach(player => {
