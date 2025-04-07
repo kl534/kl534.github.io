@@ -480,8 +480,10 @@
                 const playing = players.filter(p => !sitting.includes(p));
                 const assignments = {};
                 
-                // Process positions in random order
-                const positionOrder = shuffleArray([...allPositions]);
+                // Shuffle infield and outfield separately, then combine
+                const shuffledInfield = shuffleArray([...infieldPositions]);
+                const shuffledOutfield = shuffleArray([...outfieldPositions]);
+                const positionOrder = [...shuffledInfield, ...shuffledOutfield];
 
                 positionOrder.forEach(pos => {
                     const isInfield = infieldPositions.includes(pos);
