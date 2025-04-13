@@ -1,846 +1,314 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Youth Baseball Lineup Generator</title>
+    <title>Baseball Lineup Generator</title>
     <style>
-        :root {
-            --primary-color: #2c3e50;
-            --secondary-color: #3498db;
-            --background-color: #f8f9fa;
-            --card-background: #ffffff;
-        }
-
-        body {
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: var(--background-color);
-            line-height: 1.6;
-        }
-
-        .roster-input {
-            background-color: var(--card-background);
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-
-        .roster-header {
-            padding: 15px 20px;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #eee;
-        }
-
-        .roster-header h2 {
-            margin: 0;
-        }
-
-        .roster-header::after {
-            content: '▼';
-            font-size: 0.8em;
-            color: #666;
-            transition: transform 0.2s;
-        }
-
-        .roster-header.collapsed::after {
-            transform: rotate(-90deg);
-        }
-
-        .roster-setup {
-            padding: 20px;
-            transition: all 0.3s ease;
-            overflow: hidden;
-        }
-
-        .roster-setup.collapsed {
-            max-height: 0;
-            padding: 0 20px;
-            opacity: 0;
-        }
-
-        .player-input {
-            margin: 10px 0;
-            display: grid;
-            gap: 8px;
-            grid-template-columns: 1.5fr repeat(3, 1fr) auto;
-            align-items: center;
-        }
-
-        .player-input input {
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 14px;
-            max-width: 120px;
-        }
-
-        select {
-            padding: 8px;
-            border-radius: 6px;
-            border: 1px solid #ddd;
-            background: white;
-            font-size: 14px;
-        }
-
-        button {
-            background-color: var(--secondary-color);
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 15px;
-            transition: opacity 0.2s;
-        }
-
-        button:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
-        button.remove {
-            background-color: #e74c3c;
-            padding: 6px 12px;
-        }
-
-        .results {
-            background-color: var(--card-background);
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-
-        .inning {
-            background-color: var(--card-background);
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 20px;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-        }
-
-        .position-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 10px;
-            margin: 15px 0;
-        }
-
-        .position-item {
-            padding: 10px;
-            background-color: var(--background-color);
-            border-radius: 6px;
-            border: 1px solid #eee;
-        }
-
-        .sitting-out {
-            background-color: var(--background-color);
-            padding: 12px;
-            border-radius: 6px;
-            margin-top: 15px;
-            color: #666;
-        }
-
-        .player-summary {
-            background-color: var(--background-color);
-            padding: 20px;
-            border-radius: 8px;
-            margin-top: 20px;
-        }
-
-        .player-summary-item {
-            display: grid;
-            grid-template-columns: 1fr 2fr;
-            gap: 10px;
-            padding: 10px;
-            background-color: var(--card-background);
-            margin-bottom: 10px;
-            border-radius: 6px;
-            border: 1px solid #eee;
-        }
-
-        .player-summary-name {
-            font-weight: bold;
-            color: var(--primary-color);
-        }
-
-        .player-summary-positions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 5px;
-        }
-
-        .position-pill {
-            background-color: var(--secondary-color);
-            color: white;
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 0.9em;
-        }
-
-        .position-pill.outfield {
-            background-color: #1a5276; /* Darker blue for outfield */
-        }
-
-        .position-counts {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 10px;
-            margin-top: 15px;
-            padding: 15px;
-            background-color: var(--background-color);
-            border-radius: 8px;
-        }
-
-        .position-count-item {
-            text-align: center;
-            padding: 8px;
-            background-color: var(--card-background);
-            border-radius: 4px;
-            border: 1px solid #eee;
-        }
-
-        .count-label {
-            font-size: 0.9em;
-            color: #666;
-        }
-
-        .count-number {
-            font-size: 1.2em;
-            font-weight: bold;
-            color: var(--primary-color);
-        }
-
-        .save-lineup {
-            margin-top: 20px;
-        }
-        .save-lineup input {
-            width: 100%;
-            padding: 8px;
-            margin-top: 5px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-
-        @media (max-width: 600px) {
-            body {
-                padding: 10px;
-                font-size: 14px;
-            }
-
-            .player-input {
-                grid-template-columns: minmax(120px, 1.5fr) repeat(3, minmax(60px, 1fr)) auto;
-                gap: 6px;
-            }
-
-            .player-input input,
-            .player-input select {
-                font-size: 12px;
-                padding: 6px;
-                min-width: 0;
-            }
-
-            button {
-                padding: 8px 10px;
-                font-size: 13px;
-            }
-
-            button.remove {
-                padding: 4px 8px;
-                min-width: 28px;
-            }
-
-            .position-grid {
-                grid-template-columns: repeat(3, 1fr);
-            }
-
-            .position-counts {
-                grid-template-columns: repeat(3, 1fr);
-            }
-        }
+        .container { padding: 20px; max-width: 1000px; margin: 0 auto; }
+        .player-section, .position-section { margin-bottom: 30px; }
+        .player { margin: 10px 0; padding: 10px; border: 1px solid #ddd; }
+        .position-counts { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+        .count-item { padding: 5px; background: #f5f5f5; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        button { background: #4CAF50; color: white; border: none; padding: 8px 16px; cursor: pointer; }
+        button:hover { background: #45a049; }
+        input[type="text"] { padding: 8px; margin-right: 10px; }
+        .player-name-input {
+        margin-right: 10px;
+        padding: 4px;
+        width: 120px;
+    }
     </style>
 </head>
 <body>
-    <div class="roster-input">
-        <div class="roster-header" onclick="toggleRoster()">
-            <h2>Team Roster</h2>
+    <div class="container">
+        <h1>⚾ Baseball Lineup Generator</h1>
+        
+        <div class="player-section">
+            <h2>Players</h2>
+            <div id="playersList"></div>
+            <div>
+                <input type="text" id="playerName" placeholder="New player name">
+                <button onclick="addPlayer()">Add Player</button>
+            </div>
         </div>
-        <div class="roster-setup" id="rosterSetup">
-            <div id="playerInputs"></div>
-            <div class="controls">
-                <button id="addPlayerBtn" onclick="addPlayer()">Add Player</button>
-            </div>            
-            <div id="positionCounts"></div>
-        </div>
-    </div>
 
-    <div class="controls">
+        <div class="position-section">
+            <h2>Position Requirements</h2>
+            <div class="position-counts" id="positionCounts"></div>
+            <div id="countError" style="color: red; margin: 10px 0;"></div>
+        </div>
+
         <button onclick="generateLineup()">Generate Lineup</button>
+        <div id="lineup"></div>
     </div>
 
-    <div id="results" class="results" style="display: none;">
-        <h2>Game Lineups</h2>
-        <div id="inningsOutput"></div>
-        <div class="player-summary">
-            <h3>Player Position Summary</h3>
-            <div id="playerSummary"></div>
+<script>
+let roster = JSON.parse(localStorage.getItem('roster')) || [];
+const allPositions = ['LF', 'LCF', 'RCF', 'RF', '1B', '2B', '3B', 'SS', 'P', 'C', 'Bench'];
+
+function getActivePositions(playerCount) {
+    const positions = [...allPositions];
+    if (playerCount <= 9) {
+        positions.splice(positions.indexOf('LCF'), 1);
+    }
+    return positions;
+}
+
+function getBenchPerInning(playerCount) {
+    return Math.max(0, 3 - (13 - playerCount));
+}
+
+function updatePlayerName(id, newName) {
+    const player = roster.find(p => p.id === id);
+    if (player) {
+        player.name = newName.trim();
+        saveRoster();
+    }
+}
+
+function saveRoster() {
+    localStorage.setItem('roster', JSON.stringify(roster));
+    updatePositionCounts();
+}
+
+function addPlayer() {
+    const name = document.getElementById('playerName').value.trim();
+    if (!name) return;
+    if (roster.length >= 13) return alert("Maximum 13 players");
+    
+    roster.push({
+        id: Date.now(),
+        name,
+        positions: Array(6).fill('Bench')
+    });
+    document.getElementById('playerName').value = '';
+    sanitizePositions();
+    saveRoster();
+    renderPlayers();
+}
+
+function removePlayer(id) {
+    roster = roster.filter(p => p.id !== id);
+    sanitizePositions();
+    saveRoster();
+    renderPlayers();
+}
+
+function sanitizePositions() {
+    const playerCount = roster.length;
+    const activePositions = getActivePositions(playerCount);
+    roster.forEach(p => {
+        p.positions = p.positions.map(pos => 
+            activePositions.includes(pos) ? pos : 'Bench'
+        );
+    });
+}
+
+function updatePosition(playerId, inning, value) {
+    const player = roster.find(p => p.id === playerId);
+    if (player) {
+        player.positions[inning] = value;
+        saveRoster();
+        updatePositionCounts();
+    }
+}
+
+function renderPlayers() {
+    const activePositions = getActivePositions(roster.length);
+    const list = document.getElementById('playersList');
+    list.innerHTML = roster.map(player => `
+        <div class="player">
+            <button onclick="removePlayer(${player.id})">✕</button>
+            <input class="player-name-input" 
+                value="${player.name}" 
+                onchange="updatePlayerName(${player.id}, this.value)">
+            ${player.positions.map((pos, i) => `
+                <select onchange="updatePosition(${player.id}, ${i}, this.value)">
+                    ${activePositions.map(p => `
+                        <option value="${p}" ${p === pos ? 'selected' : ''}>${p}</option>
+                    `).join('')}
+                </select>
+            `).join('')}
         </div>
-        <div class="save-lineup">
-            <button onclick="generateShareLink()">Save Lineup</button>
-            <input type="text" id="shareLink" readonly placeholder="Shareable link will appear here">
+    `).join('');
+}
+
+function updatePositionCounts() {
+    const playerCount = roster.length;
+    const activePositions = getActivePositions(playerCount);
+    const benchPerInning = getBenchPerInning(playerCount);
+    const counts = activePositions.reduce((acc, p) => ({...acc, [p]: 0}), {});
+    
+    roster.forEach(p => p.positions.forEach(pos => counts[pos]++));
+    
+    document.getElementById('positionCounts').innerHTML = activePositions
+        .filter(p => p !== 'Bench')
+        .map(p => `
+            <div class="count-item">
+                ${p}: ${counts[p]} / 6
+                ${counts[p] !== 6 ? '❌' : '✅'}
+            </div>
+        `).join('') + `
+        <div class="count-item">
+            Bench: ${counts.Bench} / ${benchPerInning * 6}
+            ${counts.Bench !== benchPerInning * 6 ? '❌' : '✅'}
         </div>
-    </div>
+    `;
+}
 
-    <script>
-        const allPositions = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'LCF', 'RCF', 'RF'];
-        const infieldPositions = ['P', 'C', '1B', '2B', '3B', 'SS'];
-        const outfieldPositions = ['LF', 'LCF', 'RCF', 'RF'];
+function validateCounts() {
+    const playerCount = roster.length;
+    const activePositions = getActivePositions(playerCount);
+    const benchPerInning = getBenchPerInning(playerCount);
+    const counts = activePositions.reduce((acc, p) => ({...acc, [p]: 0}), {});
+    
+    roster.forEach(p => p.positions.forEach(pos => counts[pos]++));
+    
+    return activePositions.every(p => 
+        p === 'Bench' ? 
+        counts[p] === benchPerInning * 6 : 
+        counts[p] === 6
+    );
+}
 
-        function toggleRoster() {
-            const header = document.querySelector('.roster-header');
-            const setup = document.getElementById('rosterSetup');
-            header.classList.toggle('collapsed');
-            setup.classList.toggle('collapsed');
-        }
+function shuffleArray(array) {
+    const newArray = [...array];
+    for (let i = newArray.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+    }
+    return newArray;
+}
 
-        function collapseRoster() {
-            const header = document.querySelector('.roster-header');
-            const setup = document.getElementById('rosterSetup');
-            header.classList.add('collapsed');
-            setup.classList.add('collapsed');
-        }
+function generateLineup() {
+    if (!validateCounts()) {
+        document.getElementById('countError').innerHTML = 
+            "Position counts incorrect! Adjust assignments to meet requirements";
+        return;
+    }
+    document.getElementById('countError').innerHTML = "";
 
-        function initializePlayers() {
-            try {
-                const savedData = localStorage.getItem('rosterData');
-                if (savedData) {
-                    const players = JSON.parse(savedData);
-                    renderPlayers(players);
-                } else {
-                    createDefaultPlayers();
-                }
-                checkSavedLineup();
-            } catch {
-                createDefaultPlayers();
-            }
-            updateAddButtonState();
-            updatePositionCounts();
-        }
+    const playerCount = roster.length;
+    const activePositions = getActivePositions(playerCount);
+    const benchPerInning = getBenchPerInning(playerCount);
+    const fieldPositions = activePositions.filter(p => p !== 'Bench');
 
-        function createDefaultPlayers() {
-            const container = document.getElementById('playerInputs');
-            container.innerHTML = '';
-            for (let i = 0; i < 13; i++) {
-                addPlayerElement(`Player ${12 + i}`, ['P', 'C', '1B']);
-            }
-        }
 
-        function addPlayerElement(name, prefs) {
-            const div = document.createElement('div');
-            div.className = 'player-input';
-            div.innerHTML = `
-                <input type="text" value="${name}" placeholder="Player name">
-                ${Array(3).fill().map((_, idx) => `
-                    <select>
-                        ${allPositions.map(pos => `
-                            <option value="${pos}" ${pos === prefs[idx] ? 'selected' : ''}>${pos}</option>
-                        `).join('')}
-                    </select>
-                `).join('')}
-                <button class="remove" onclick="this.parentElement.remove(); saveRoster(); updateAddButtonState(); updatePositionCounts();">×</button>
-            `;
-            div.querySelectorAll('select').forEach(select => {
-                select.addEventListener('change', () => {
-                    saveRoster();
-                    updatePositionCounts();
-                });
-            });
-            div.querySelector('input').addEventListener('input', () => {
-                saveRoster();
-                updatePositionCounts();
-            });
-            document.getElementById('playerInputs').appendChild(div);
-        }
+    let success = false;
+    let lineup = Array(6).fill().map(() => ({
+        field: {},
+        bench: []
+    }));
+    let iteration = 0;
 
-        function addPlayer() {
-            const currentPlayers = document.querySelectorAll('.player-input');
-            if (currentPlayers.length >= 15) return;
-            addPlayerElement('', ['P', 'C', '1B']);
-            saveRoster();
-            updateAddButtonState();
-            updatePositionCounts();
-        }
+    while (!success && iteration < 500) {
+        const players = roster.map(p => ({
+            ...p,
+            remaining: p.positions.reduce((acc, pos) => {
+                acc[pos] = (acc[pos] || 0) + 1;
+                return acc;
+            }, {}),
+            schedule: Array(6).fill(null)
+        }));
 
-        function updateAddButtonState() {
-            const currentCount = document.querySelectorAll('.player-input').length;
-            document.getElementById('addPlayerBtn').disabled = currentCount >= 15;
-        }
-
-        function renderPlayers(players) {
-            const container = document.getElementById('playerInputs');
-            container.innerHTML = '';
-            players.forEach(player => {
-                addPlayerElement(player.name, player.preferences);
-            });
-        }
-
-        function saveRoster() {
-            const players = [];
-            document.querySelectorAll('.player-input').forEach(input => {
-                const name = input.children[0].value.trim();
-                const prefs = Array.from(input.querySelectorAll('select')).map(s => s.value);
-                players.push({ name, preferences: prefs });
-            });
-            localStorage.setItem('rosterData', JSON.stringify(players));
-        }
-
-        function updatePositionCounts() {
-            const positionMap = {};
-            allPositions.forEach(pos => positionMap[pos] = 0);
-
-            document.querySelectorAll('.player-input').forEach(input => {
-                Array.from(input.querySelectorAll('select')).forEach(select => {
-                    positionMap[select.value]++;
-                });
-            });
-
-            const countsHTML = allPositions.map(pos => `
-                <div class="position-count-item">
-                    <div class="count-label">${pos}</div>
-                    <div class="count-number">${positionMap[pos]}</div>
-                </div>
-            `).join('');
-
-            document.getElementById('positionCounts').innerHTML = `
-                <div class="position-counts">${countsHTML}</div>
-            `;
-        }
-
-        function checkSavedLineup() {
-            try {
-                const savedLineup = localStorage.getItem('lastLineup');
-                if (savedLineup) {
-                    const innings = JSON.parse(savedLineup);
-                    displayResults(innings);
-                    document.getElementById('results').style.display = 'block';
-                }
-            } catch {
-                localStorage.removeItem('lastLineup');
-            }
-        }
-
-        function generateLineup() {
-            let validLineup = false;
-            let iteration = 0;
-            const innings = [];
-            const players = [];
-            let validationErrors = [];
-
-            while (!validLineup && iteration < 100) {
-                innings.length = 0;
-                players.length = 0;
-                validationErrors.length = 0;
-
-                const inputs = document.querySelectorAll('.player-input');
-                
-                // Initialize players
-                inputs.forEach(input => {
-                    const name = input.children[0].value.trim();
-                    const prefs = Array.from(input.querySelectorAll('select')).map(s => s.value);
-                    if (name) {
-                        players.push({
-                            name,
-                            preferences: prefs,
-                            grabBag: [],
-                            stats: {
-                                positions: {},
-                                sitCount: 0,
-                                lastSatInning: -4, // Initialize to allow sitting in first inning
-                                infieldCount: 0,
-                                outfieldCount: 0
-                            }
-                        });
-                    }
-                });
-            
-                if (players.length < 10) {
-                    alert('Minimum 10 players required');
-                    return;
-                }
-            
-                const totalPlayers = players.length;
-                const sitsPerInning = totalPlayers - 10;
-                
-                // Generate sitting schedule upfront with cooldown
-                const coolDown = 3; // min innings between sit
-                const sittingSchedule = Array(6).fill().map(() => []);
-                
-                for (let inningNum = 0; inningNum < 6; inningNum++) {
-                    const counts = players.map(obj => obj.stats.sitCount);
-                    const minCount = Math.min(...counts);
-                    let sittingCandidates = players.filter(obj => obj.stats.sitCount === minCount && obj.stats.lastSatInning < inningNum - coolDown);
-                    const selectedSitters = [];
-                    let coverageSet = new Set();
-
-                    if (sittingCandidates.length < sitsPerInning) {
-                        // Remaining candidates all get added
-                        selectedSitters.push(...sittingCandidates);
-                        sittingCandidates = players.filter(obj => obj.stats.sitCount !== minCount && obj.stats.lastSatInning < inningNum - coolDown);
-                    } else {
-                        // 1. Select first random player
-                        if (sittingCandidates.length > 0) {
-                            const randomIndex = Math.floor(Math.random() * sittingCandidates.length);
-                            const firstPlayer = sittingCandidates.splice(randomIndex, 1)[0];
-                            selectedSitters.push(firstPlayer);
-                            firstPlayer.preferences.forEach(p => coverageSet.add(p));
-                        }
-                    }
-
-                    // 2. Select subsequent players to maximize coverage
-                    while (selectedSitters.length < sitsPerInning && sittingCandidates.length > 0) {
-                        let bestCandidate = null;
-                        let bestNewCoverage = -1;
-                        const candidates = [];
-
-                        // Find candidates with maximum new coverage
-                        sittingCandidates.forEach(player => {
-                            const newCoverage = player.preferences.filter(p => !coverageSet.has(p)).length;
-                            if (newCoverage > bestNewCoverage) {
-                                bestNewCoverage = newCoverage;
-                                candidates.length = 0;
-                                candidates.push(player);
-                            } else if (newCoverage === bestNewCoverage) {
-                                candidates.push(player);
-                            }
-                        });
-
-                        // Random select from best candidates
-                        if (candidates.length > 0) {
-                            bestCandidate = candidates[Math.floor(Math.random() * candidates.length)];
-                            const index = sittingCandidates.indexOf(bestCandidate);
-                            sittingCandidates.splice(index, 1);
-                            selectedSitters.push(bestCandidate);
-                            bestCandidate.preferences.forEach(p => coverageSet.add(p));
-                        } else {
-                            break;
-                        }
-                    }
-
-                    // 3. Fill remaining spots with random players if needed
-                    while (selectedSitters.length < sitsPerInning && sittingCandidates.length > 0) {
-                        const randomIndex = Math.floor(Math.random() * sittingCandidates.length);
-                        const player = sittingCandidates.splice(randomIndex, 1)[0];
-                        selectedSitters.push(player);
-                    }
-
-                    // Assign inning sits
-                    selectedSitters.forEach(player => {
-                        sittingSchedule[inningNum].push(player);
-                        player.stats.sitCount++;
-                        player.stats.lastSatInning = inningNum;
-                    });
-                }
-            
-                // Fill grab bags (3 per preferred position)
-                players.forEach(player => {
-                    player.grabBag = [];
-                    player.preferences.forEach(pos => {
-                        for (let i = 0; i < 3; i++) {
-                            player.grabBag.push(pos);
-                        }
-                    });
-                    shuffleArray(player.grabBag);
-                });
-            
-                // Generate lineups using pre-determined sitting schedule
-                for (let inningNum = 0; inningNum < 6; inningNum++) {
-                    const sitting = sittingSchedule[inningNum];
-                    const playing = players.filter(p => !sitting.includes(p));
-                    const assignments = {};
-                    
-                    // Process positions - infield first then outfield
-                    const shuffledInfield = shuffleArray([...infieldPositions]);
-                    const shuffledOutfield = shuffleArray([...outfieldPositions]);
-                    const positionOrder = [...shuffledInfield, ...shuffledOutfield];
-            
-                    positionOrder.forEach(pos => {
-                        const isInfield = infieldPositions.includes(pos);
-                        let candidates = playing.filter(p => 
-                            !Object.values(assignments).includes(p.name) &&
-                            p.grabBag.length > 0 &&
-                            (!isInfield || p.preferences.includes(pos)) &&
-                            (p.stats.sitCount < 2 || p.stats.outfieldCount < 1 || !isInfield)
-                        );
-            
-                        // Priority sorting
-                        const futureSits = sittingSchedule.slice(inningNum + 1);
-                        candidates.sort((a, b) => {
-                            // 1st: Most instances of this position
-                            const aPosCount = a.grabBag.filter(p => p === pos).length;
-                            const bPosCount = b.grabBag.filter(p => p === pos).length;
-                            if (bPosCount !== aPosCount) return bPosCount - aPosCount;
-
-                            // 2nd: Most infield positions remaining
-                            const aInfieldCount = a.grabBag.filter(p => infieldPositions.includes(p)).length;
-                            const bInfieldCount = b.grabBag.filter(p => infieldPositions.includes(p)).length;
-                            if (bInfieldCount !== aInfieldCount) return bInfieldCount - aInfieldCount;
-
-                            // 3rd: Players who have the most upcoming sits
-                            const aFutureSitCount = sittingSchedule.reduce(
-                                (count, subArr) => count + subArr.filter((x) => x === a).length,
-                                0
-                            );
-                            const bFutureSitCount = sittingSchedule.reduce(
-                                (count, subArr) => count + subArr.filter((x) => x === b).length,
-                                0
-                            );
-                            if (bFutureSitCount !== aFutureSitCount) return bFutureSitCount - aFutureSitCount;
-            
-                            // 4th: Most sits
-                            if (b.stats.sitCount !== a.stats.sitCount) return b.stats.sitCount - a.stats.sitCount;
-
-                            // 5th: Most total remaining
-                            return b.grabBag.length - a.grabBag.length;
-                        });
-            
-                        if (candidates.length > 0) {
-                            const player = candidates[0];
-                            assignments[pos] = player.name;
-                            
-                            // Remove from grab bag
-                            const posIndex = player.grabBag.indexOf(pos);
-                            if (posIndex > -1) player.grabBag.splice(posIndex, 1);
-                            
-                            // Update stats
-                            player.stats.positions[pos] = (player.stats.positions[pos] || 0) + 1;
-                            if (isInfield) {
-                                player.stats.infieldCount++;
-                            } else {
-                                player.stats.outfieldCount++;
-                            }
-                        }
-                    });
-            
-                    innings.push({
-                        inning: inningNum + 1,
-                        sitting: sitting.map(p => p.name),
-                        assignments: {...assignments}
-                    });
-                }
-
-                // Validation and error handling
-                players.forEach(player => {
-                    // Check position limits
-                    Object.entries(player.stats.positions).forEach(([pos, count]) => {
-                        if(count > 3) validationErrors.push(`${player.name} played ${pos} ${count} times`);
-                    });
-
-                    // Check someone is assigned every inning
-                    if(player.stats.sitCount + player.stats.infieldCount + player.stats.outfieldCount != 6) {
-                        validationErrors.push(`${player.name} was not assigned a position every inning`);
-                    }
-                    
-                    // Check outfield limits for players who sat twice
-                    if(player.stats.sitCount >= 2 && player.stats.outfieldCount > 2) {
-                        validationErrors.push(`${player.name} sat ${player.stats.sitCount} times but got ${player.stats.outfieldCount} OF assignments`);
-                    }
-
-                    // Check infield/outfield opportunities
-                    if(player.stats.outfieldCount < 1 || player.stats.infieldCount < 1) {
-                        validationErrors.push(`${player.name} did not get an IF and OF assignment`);
-                    }
-                });
+        iteration++;
+        lineup = Array(6).fill().map(() => ({
+            field: {},
+            bench: []
+        }));
+    
+        success = true;
         
-                if(validationErrors.length === 0) {
-                    validLineup = true;
-                }
-                iteration++;
-            }
-
-            if (!validLineup) {
-                alert('Lineup issues:\n' + validationErrors.join('\n'));
-            }
-        
-            localStorage.setItem('lastLineup', JSON.stringify(innings));
-            displayResults(innings);
-            displayPlayerSummary(players);
-        }
-
-        function displayResults(innings) {
-            const output = document.getElementById('inningsOutput');
-            output.innerHTML = '';
+        // Assign field positions
+        for (let inning = 0; inning < 6; inning++) {
+            const inningPositions = shuffleArray([...fieldPositions]);
             
-            innings.forEach(inning => {
-                const inningDiv = document.createElement('div');
-                inningDiv.className = 'inning';
+            for (const position of inningPositions) {
+                const candidates = players.filter(p => 
+                    p.remaining[position] > 0 && 
+                    p.schedule[inning] === null
+                );
                 
-                const positionsHTML = allPositions.map(pos => `
-                    <div class="position-item">
-                        <span class="position-label">${pos}:</span>
-                        ${inning.assignments[pos] || '---'}
-                    </div>
-                `).join('');
-
-                inningDiv.innerHTML = `
-                    <h3>Inning ${inning.inning}</h3>
-                    <div class="position-grid">
-                        ${positionsHTML}
-                    </div>
-                    <div class="sitting-out">
-                        <strong>Sitting Out:</strong> ${inning.sitting.join(', ') || 'None'}
-                    </div>
-                `;
-                output.appendChild(inningDiv);
-            });
-
-            document.getElementById('results').style.display = 'block';
-        }
-
-        function displayPlayerSummary(players) {
-            const summaryContainer = document.getElementById('playerSummary');
-            summaryContainer.innerHTML = players.map(player => {
-                // Sort positions based on allPositions order
-                const sortedPositions = Object.entries(player.stats.positions)
-                    .filter(([_, count]) => count > 0)
-                    .sort((a, b) => allPositions.indexOf(a[0]) - allPositions.indexOf(b[0]));
-        
-                return `
-                    <div class="player-summary-item">
-                        <div class="player-summary-name">${player.name}</div>
-                        <div class="player-summary-positions">
-                            ${sortedPositions.map(([pos, count]) => `
-                                <div class="position-pill ${outfieldPositions.includes(pos) ? 'outfield' : ''}">
-                                    ${pos} ×${count}
-                                </div>
-                            `).join('')}
-                            ${player.stats.sitCount > 0 ? `
-                                <div class="position-pill" style="background-color: #e74c3c;">
-                                    Sat ×${player.stats.sitCount}
-                                </div>
-                            ` : ''}
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        function generateShareLink() {
-            const rosterData = [];
-            document.querySelectorAll('.player-input').forEach(input => {
-                const name = input.children[0].value.trim();
-                const prefs = Array.from(input.querySelectorAll('select')).map(s => s.value);
-                rosterData.push({ name, preferences: prefs });
-            });
-
-            const lineupData = {
-                roster: rosterData,
-                lineup: JSON.parse(localStorage.getItem('lastLineup') || '[]')
-            };
-
-            const encoded = btoa(JSON.stringify(lineupData));
-            const url = new URL(window.location.href);
-            url.searchParams.set('lineup', encoded);
-            
-            document.getElementById('shareLink').value = url.toString();
-            document.getElementById('shareLink').select();
-        }
-
-        function loadFromURL() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const lineupParam = urlParams.get('lineup');
-            if (lineupParam) {
-                try {
-                    const lineupData = JSON.parse(atob(lineupParam));
-                    
-                    // Clear existing players
-                    document.getElementById('playerInputs').innerHTML = '';
-                    
-                    // Load roster
-                    lineupData.roster.forEach(player => {
-                        addPlayerElement(player.name, player.preferences);
-                    });
-                    
-                    // Load lineup
-                    if (lineupData.lineup.length > 0) {
-                        localStorage.setItem('lastLineup', JSON.stringify(lineupData.lineup));
-                        displayResults(lineupData.lineup);
-                        displayPlayerSummary(getPlayersFromLineup(lineupData.lineup));
-                    }
-                    
-                    saveRoster();
-                    updatePositionCounts();
-                } catch (e) {
-                    console.error('Error loading lineup:', e);
+                if (candidates.length === 0) {
+                    success = false;
+                    break;
                 }
-            }
-        }
-
-        // Helper function to get players from lineup
-        function getPlayersFromLineup(innings) {
-            const players = [];
-            const playerMap = {};
-            
-            // Get all unique players from lineup
-            innings.forEach(inning => {
-                Object.values(inning.assignments).forEach(name => {
-                    if (!playerMap[name]) {
-                        playerMap[name] = {
-                            name,
-                            stats: {
-                                positions: {},
-                                sitCount: 0
-                            }
-                        };
-                        players.push(playerMap[name]);
-                    }
-                });
                 
-                inning.sitting.forEach(name => {
-                    if (!playerMap[name]) {
-                        playerMap[name] = {
-                            name,
-                            stats: {
-                                positions: {},
-                                sitCount: 0
-                            }
-                        };
-                        players.push(playerMap[name]);
-                    }
-                    playerMap[name].stats.sitCount++;
-                });
-            });
-            
-            // Count positions
-            innings.forEach(inning => {
-                Object.entries(inning.assignments).forEach(([pos, name]) => {
-                    if (playerMap[name]) {
-                        playerMap[name].stats.positions[pos] = 
-                            (playerMap[name].stats.positions[pos] || 0) + 1;
-                    }
-                });
-            });
-            
-            return players;
-        }
-
-        function shuffleArray(array) {
-            for (let i = array.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [array[i], array[j]] = [array[j], array[i]];
+                const shuffledCandidates = shuffleArray(candidates);
+                const player = shuffledCandidates[0];
+                player.schedule[inning] = position;
+                player.remaining[position]--;
+                lineup[inning].field[position] = player.name;
             }
-            return array;
+            
+            if (!success) break;
         }
+    
+        // Assign bench positions
+        if (success) {
+            for (let inning = 0; inning < 6; inning++) {
+                const benchPlayers = players.filter(p => 
+                    p.schedule[inning] === null && 
+                    p.remaining.Bench > 0
+                );
+                
+                if (benchPlayers.length < benchPerInning) {
+                    success = false;
+                    break;
+                }
+                
+                const selectedBench = shuffleArray(benchPlayers).slice(0, benchPerInning);
+                selectedBench.forEach(p => {
+                    p.schedule[inning] = 'Bench';
+                    p.remaining.Bench--;
+                    lineup[inning].bench.push(p.name);
+                });
+            }
+        }
+    }
 
-        // Call loadFromURL on page load
-        window.addEventListener('DOMContentLoaded', () => {
-            initializePlayers();
-            loadFromURL();
-        });
-    </script>
+    if (!success) {
+        document.getElementById('countError').innerHTML = 
+            "Failed to generate valid lineup. Please try again.";
+        return;
+    }
+
+    displayLineup(lineup, fieldPositions);
+}
+
+function displayLineup(lineup, fieldPositions) {
+    document.getElementById('lineup').innerHTML = `
+        <h2>Generated Lineup</h2>
+        <table>
+            <tr><th>Inning</th>${fieldPositions.map(p => `<th>${p}</th>`).join('')}<th>Bench</th></tr>
+            ${lineup.map((inning, i) => `
+                <tr>
+                    <td>${i + 1}</td>
+                    ${fieldPositions.map(p => `<td>${inning.field[p] || ''}</td>`).join('')}
+                    <td>${inning.bench.join(', ')}</td>
+                </tr>
+            `).join('')}
+        </table>
+    `;
+}
+
+// Initial load
+window.onload = () => {
+    if (roster.length === 0) {
+        for (let i = 12; i <= 24; i++) {
+            roster.push({
+                id: Date.now() + i,
+                name: `Player ${i}`,
+                positions: Array(6).fill('Bench')
+            });
+        }
+        saveRoster();
+    }
+    renderPlayers();
+    updatePositionCounts();
+};
+</script>
 </body>
 </html>
