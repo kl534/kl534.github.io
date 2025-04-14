@@ -418,11 +418,20 @@ function displayLineup(lineup, fieldPositions) {
 // Initial load
 window.onload = () => {
     if (roster.length === 0) {
-        for (let i = 12; i <= 24; i++) {
+        const positionOrder = ['LF', 'LCF', 'RCF', 'RF', '1B', '2B', '3B', 'SS', 'P', 'C', 'Bench'];
+        
+        for (let i = 0; i < 13; i++) {
+            const playerNumber = 12 + i;
+            let position = 'Bench';
+            
+            if (i < 10) {
+                position = positionOrder[i];
+            }
+
             roster.push({
                 id: Date.now() + i,
-                name: `Player ${i}`,
-                positions: Array(6).fill('Bench')
+                name: `Player ${playerNumber}`,
+                positions: Array(6).fill(position)
             });
         }
         saveRoster();
