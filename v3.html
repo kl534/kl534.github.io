@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Baseball Lineup Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overscroll-behavior: none; 
+        }
+        .position-btn.active {
+            background-color: #2563eb; /* blue-600 */
+            color: white;
+        }
+        .position-btn.inactive {
+            background-color: #e5e7eb; /* gray-200 */
+            color: #374151; /* gray-700 */
+        }
+        /* Field Visualization Area & Decorative Elements */
+        .field-visualization-area { 
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1 / 1; 
+            max-width: 480px; /* INCREASED to accommodate larger boxes */
+            margin: auto;
+            background-color: #f0fdf4; 
+            border: 1px solid #bbf7d0; 
+            border-radius: 0.5rem; 
+            padding: 1rem; 
+            overflow: hidden; 
+        }
+        .field-diamond { 
+            position: absolute;
+            width: 48%; 
+            height: 48%; 
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(45deg);
+            border: 2px solid #d2b48c; 
+            z-index: 1; 
+        }
+        .pitchers-mound {
+            position: absolute;
+            top: 50%; 
+            left: 50%; 
+            width: 10%; 
+            height: 10%; 
+            background-color: #e0c9a6; 
+            border-radius: 50%;
+            transform: translate(-50%, -50%); 
+            border: 1px solid #c6ad8f;
+            z-index: 2; 
+        }
+
+        /* Interactive Field Positions */
+        #fieldContainer { 
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 10; 
+        }
+        .field-position {
+            position: absolute;
+            min-width: 100px; /* INCREASED for 12 char names */
+            padding: 6px 8px; /* Adjusted padding */
+            background-color: #dcfce7; 
+            border: 2px dashed transparent; 
+            border-radius: 8px; 
+            text-align: center;
+            font-size: clamp(10px, 2.2vw, 12px); /* Adjusted font slightly */
+            cursor: grab; 
+            transition: background-color 0.2s, border-color 0.2s;
+            box-shadow: 0px 1px 3px rgba(0,0,0,0.1);
+        }
+        .field-position .player-name {
+             margin-top: 2px; 
+             white-space: nowrap; /* Prevent name from wrapping */
+             overflow: hidden; /* Hide overflow for ellipsis */
+             text-overflow: ellipsis; /* Add ellipsis if name is too long */
+        }
+        .field-position:not(.occupied) { cursor: pointer; }
+        .field-position.occupied .player-name { font-weight: 500; }
+        .field-position:hover { background-color: #bbf7d0; }
+        .field-position.occupied { background-color: #86efac; color: #14532d; }
+        .field-position.selected { outline: 2px solid #2563eb; outline-offset: 1px; }
+        .field-position.drag-over-active { border-color: #2563eb; background-color: #bfdbfe; }
+        
+        /* Positioning adjusted for larger boxes and more infield spacing */
+        .pos-P  { top: 50%; left: 50%; transform: translate(-50%, -50%); } 
+        .pos-C  { top: 78%; left: 50%; transform: translate(-50%, -50%); } /* Adjusted for larger box */
+        .pos-1B { top: 50%; left: 78%; transform: translate(-50%, -50%); } /* Further right */
+        .pos-2B { top: 32%; left: 68%; transform: translate(-50%, -50%); } /* Adjusted for spacing */
+        .pos-SS { top: 32%; left: 32%; transform: translate(-50%, -50%); } /* Adjusted for spacing */
+        .pos-3B { top: 50%; left: 22%; transform: translate(-50%, -50%); } /* Further left */
+        .pos-LF { top: 8%; left: 10%; transform: translate(-50%, -50%); } 
+        .pos-LCF { top: 2%; left: 35%; transform: translate(-50%, -50%); } 
+        .pos-RCF { top: 2%; left: 65%; transform: translate(-50%, -50%); } 
+        .pos-RF { top: 8%; left: 90%; transform: translate(-50%, -50%); } 
+
+
+        .modal { display: none; }
+        .modal.active { display: flex; }
+
+        .player-item, .bench-player-draggable { 
+            padding: 8px; margin: 4px 0; border-radius: 6px; cursor: grab;
+        }
+        .bench-player-draggable.dragging, .field-position.dragging { 
+            opacity: 0.5; border: 1px dashed #9ca3af; 
+        }
+        #benchList.drag-over-active { background-color: #fef3c7; border-color: #fcd34d; }
+
+        .collapsible-content {
+            max-height: 3000px; 
+            overflow: hidden;
+            transition: max-height 0.5s ease-in-out, opacity 0.3s ease-in-out, padding 0.3s ease-in-out, margin 0.3s ease-in-out;
+            opacity: 1;
+        }
+        .collapsible-content.collapsed {
+            max-height: 0; opacity: 0; margin-top: 0 !important; 
+            padding-top: 0 !important; padding-bottom: 0 !important;
+            overflow: hidden;
+        }
+        .toggle-btn {
+            margin-left: auto; padding: 0.25rem 0.5rem; font-size: 0.875rem;
+            font-weight: 600; border: 1px solid #d1d5db; border-radius: 0.375rem; 
+        }
+        /* Summary Table Styles */
+        #fullGameLineupsList table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 0.5rem;
+            font-size: 0.8rem; 
+        }
+        #fullGameLineupsList th, #fullGameLineupsList td {
+            border: 1px solid #e5e7eb; 
+            padding: 4px 6px;
+            text-align: left;
+            vertical-align: top;
+        }
+        #fullGameLineupsList th {
+            background-color: #f9fafb; 
+            font-weight: 600;
+        }
+        #fullGameLineupsList td.bench-cell {
+            min-width: 100px; 
+            word-break: break-word;
+        }
+        /* Player Summary Pill Styles */
+        .player-summary-item {
+            margin-bottom: 4px;
+        }
+        .pos-pill {
+            display: inline-block;
+            padding: 2px 8px;
+            margin-right: 4px;
+            margin-bottom: 4px;
+            border-radius: 12px; 
+            font-size: 0.75rem; 
+            font-weight: 500;
+            line-height: 1.5;
+        }
+        .pos-pill-infield {
+            background-color: #fef3c7; 
+            color: #92400e; 
+            border: 1px solid #fcd34d; 
+        }
+        .pos-pill-outfield {
+            background-color: #dcfce7; 
+            color: #065f46; 
+            border: 1px solid #86efac; 
+        }
+        .pos-pill-bench { 
+            background-color: #fee2e2; 
+            color: #991b1b; 
+            border: 1px solid #fecaca; 
+        }
+
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 p-4 md:p-8">
+    <div class="container mx-auto max-w-7xl space-y-8">
+        <header class="text-center">
+            <h1 class="text-3xl md:text-4xl font-bold text-blue-700">Baseball Lineup Manager</h1>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="bg-white p-6 rounded-lg shadow-lg space-y-4">
+                <div class="flex justify-between items-center border-b pb-2">
+                    <h2 class="text-2xl font-semibold text-blue-600">Roster</h2>
+                    <button class="toggle-btn" data-target="rosterContent">[–]</button>
+                </div>
+                <div id="rosterContent" class="collapsible-content space-y-4 pt-4">
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-700 mb-2">Add New Player</h3>
+                        <div>
+                            <label for="newPlayerName" class="block text-sm font-medium text-gray-700">Player Name:</label>
+                            <input type="text" id="newPlayerName" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                            <p id="newPlayerNameError" class="text-red-500 text-xs mt-1 hidden">Player name cannot be empty.</p>
+                        </div>
+                        <div class="mt-3">
+                            <p class="block text-sm font-medium text-gray-700 mb-1">Allowed Positions (select at least 1 Infield and 1 Outfield):</p>
+                            <div id="newPositionSelection" class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                </div>
+                            <p id="newPositionError" class="text-red-500 text-xs mt-1 hidden">Must select at least 1 infield and 1 outfield position.</p>
+                        </div>
+                        <button id="addPlayerToListBtn" class="mt-4 w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-150">Add Player to Roster</button>
+                    </div>
+                    <hr/>
+                    <h3 class="text-lg font-medium text-gray-700 mb-2">Current Roster</h3>
+                    <div id="rosterList" class="space-y-2"> 
+                        </div>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-lg shadow-lg space-y-4">
+                <div class="flex justify-between items-center border-b pb-2">
+                    <h2 class="text-2xl font-semibold text-blue-600">Lineup</h2>
+                    <button class="toggle-btn" data-target="lineupContent">[–]</button>
+                </div>
+                <div id="lineupContent" class="collapsible-content space-y-4 pt-4">
+                    <div class="flex items-center space-x-2">
+                        <label for="inningSelector" class="font-medium">Inning:</label>
+                        <select id="inningSelector" class="p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                            </select>
+                        <button id="fillPositionsBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-150">Fill Positions</button>
+                    </div>
+                    <div id="fillWarning" class="text-sm text-red-600 font-medium hidden"></div>
+
+                    <div class="field-visualization-area">
+                        <div class="field-diamond"> 
+                            <div class="pitchers-mound"></div>
+                        </div>
+                        <div id="fieldContainer">
+                            </div>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-semibold text-gray-700 mt-4">Bench (Inning <span id="currentInningBenchLabel">1</span>)</h3>
+                        <div id="benchList" class="mt-2 p-3 bg-gray-50 border-2 border-dashed border-transparent rounded-lg min-h-[80px] space-y-1 overflow-y-auto max-h-48 flex flex-wrap gap-2">
+                            </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-lg shadow-lg space-y-4">
+                 <div class="flex justify-between items-center border-b pb-2">
+                    <h2 class="text-2xl font-semibold text-blue-600">Summaries</h2>
+                    <button class="toggle-btn" data-target="summariesContent">[–]</button>
+                </div>
+                <div id="summariesContent" class="collapsible-content space-y-4 pt-4">
+                    <div>
+                        <h3 class="text-xl font-semibold text-gray-700">Player Game Summary</h3>
+                        <div id="playerSummaryList" class="mt-2 space-y-1 text-sm max-h-96 overflow-y-auto"> 
+                            </div>
+                    </div>
+                    <hr/>
+                    <div>
+                        <h3 class="text-xl font-semibold text-gray-700">Full Game Lineups</h3>
+                        <div id="fullGameLineupsList" class="mt-2 text-sm max-h-[500px] overflow-y-auto">
+                            </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="editPlayerModal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 items-center justify-center p-4 z-50">
+        <div class="bg-white p-6 md:p-8 rounded-lg shadow-xl w-full max-w-lg space-y-4">
+            <h3 id="editModalTitle" class="text-2xl font-semibold text-blue-600">Edit Player</h3>
+            <input type="hidden" id="editPlayerIdInput">
+            <div>
+                <label for="editPlayerNameInput" class="block text-sm font-medium text-gray-700">Player Name:</label>
+                <input type="text" id="editPlayerNameInput" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                <p id="editPlayerNameError" class="text-red-500 text-xs mt-1 hidden">Player name cannot be empty.</p>
+            </div>
+            <div>
+                <p class="block text-sm font-medium text-gray-700 mb-1">Allowed Positions (select at least 1 Infield and 1 Outfield):</p>
+                <div id="editPositionSelection" class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    </div>
+                <p id="editPositionError" class="text-red-500 text-xs mt-1 hidden">Must select at least 1 infield and 1 outfield position.</p>
+            </div>
+            <div class="flex justify-end space-x-3">
+                <button id="cancelEditPlayerModalBtn" class="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg transition duration-150">Cancel</button>
+                <button id="saveEditedPlayerBtn" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition duration-150">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Constants and State Variables ---
+        const POSITIONS = {
+            P: { name: "Pitcher", type: "infield", el: null }, C: { name: "Catcher", type: "infield", el: null },
+            "1B": { name: "First Base", type: "infield", el: null }, "2B": { name: "Second Base", type: "infield", el: null },
+            SS: { name: "Shortstop", type: "infield", el: null }, "3B": { name: "Third Base", type: "infield", el: null },
+            LF: { name: "Left Field", type: "outfield", el: null }, LCF: { name: "Left Center Field", type: "outfield", el: null },
+            RCF: { name: "Right Center Field", type: "outfield", el: null }, RF: { name: "Right Field", type: "outfield", el: null }
+        };
+        const ALL_FIELD_POSITIONS_ORDERED = ["P", "C", "1B", "2B", "SS", "3B", "LF", "LCF", "RCF", "RF"];
+        const INFIELD_POSITIONS = ALL_FIELD_POSITIONS_ORDERED.filter(p => POSITIONS[p].type === 'infield');
+        const OUTFIELD_POSITIONS = ALL_FIELD_POSITIONS_ORDERED.filter(p => POSITIONS[p].type === 'outfield');
+        const MAX_INNINGS = 6; 
+
+        let roster = []; 
+        let inningsData = []; 
+        let currentInning = 1;
+        let selectedPlayerId = null; 
+        let draggedPlayerInfo = null;
+
+        // --- DOM Elements ---
+        const newPlayerNameInput = document.getElementById('newPlayerName');
+        const newPlayerNameError = document.getElementById('newPlayerNameError');
+        const newPositionSelectionDiv = document.getElementById('newPositionSelection');
+        const newPositionError = document.getElementById('newPositionError');
+        const addPlayerToListBtn = document.getElementById('addPlayerToListBtn');
+        const editPlayerModal = document.getElementById('editPlayerModal');
+        const cancelEditPlayerModalBtn = document.getElementById('cancelEditPlayerModalBtn');
+        const saveEditedPlayerBtn = document.getElementById('saveEditedPlayerBtn');
+        const editPlayerIdInput = document.getElementById('editPlayerIdInput');
+        const editPlayerNameInput = document.getElementById('editPlayerNameInput');
+        const editPlayerNameError = document.getElementById('editPlayerNameError');
+        const editPositionSelectionDiv = document.getElementById('editPositionSelection');
+        const editPositionError = document.getElementById('editPositionError');
+        const rosterListDiv = document.getElementById('rosterList');
+        const inningSelector = document.getElementById('inningSelector');
+        const fillPositionsBtn = document.getElementById('fillPositionsBtn');
+        const fillWarningDiv = document.getElementById('fillWarning');
+        const fieldContainer = document.getElementById('fieldContainer');
+        const benchListDiv = document.getElementById('benchList');
+        const playerSummaryListDiv = document.getElementById('playerSummaryList');
+        const fullGameLineupsListDiv = document.getElementById('fullGameLineupsList'); 
+        const currentInningBenchLabel = document.getElementById('currentInningBenchLabel');
+        const toggleButtons = document.querySelectorAll('.toggle-btn');
+
+        // --- Initialization ---
+        function init() {
+            loadState(); 
+            populateInningSelector();
+            populatePositionButtons(newPositionSelectionDiv); 
+            renderFieldPositions(); 
+            renderAll(); 
+            setupEventListeners();
+        }
+
+        function setupEventListeners() {
+            addPlayerToListBtn.addEventListener('click', handleAddNewPlayerToList);
+            cancelEditPlayerModalBtn.addEventListener('click', closeEditPlayerModal);
+            saveEditedPlayerBtn.addEventListener('click', handleSaveEditedPlayer);
+            inningSelector.addEventListener('change', (e) => {
+                currentInning = parseInt(e.target.value);
+                selectedPlayerId = null; 
+                renderAll();
+                saveState();
+            });
+            fillPositionsBtn.addEventListener('click', handleFillPositions);
+            rosterListDiv.addEventListener('click', handleRosterActions);
+            benchListDiv.addEventListener('click', handleBenchPlayerClick); 
+            benchListDiv.addEventListener('dragover', handleDragOver);
+            benchListDiv.addEventListener('dragenter', handleDragEnterBench);
+            benchListDiv.addEventListener('dragleave', handleDragLeaveBench);
+            benchListDiv.addEventListener('drop', handleDropOnBench);
+            benchListDiv.addEventListener('dragstart', handleDragStartBenchPlayer); 
+
+            toggleButtons.forEach(button => {
+                button.addEventListener('click', handleToggleCollapse);
+            });
+        }
+
+        function populateInningSelector() {
+            inningSelector.innerHTML = ''; 
+            for (let i = 1; i <= MAX_INNINGS; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = i;
+                inningSelector.appendChild(option);
+            }
+            if (currentInning > MAX_INNINGS) currentInning = MAX_INNINGS;
+            inningSelector.value = currentInning;
+        }
+
+        function populatePositionButtons(containerElement, playerAllowedPositions = new Set()) {
+            containerElement.innerHTML = '';
+            ALL_FIELD_POSITIONS_ORDERED.forEach(posKey => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.dataset.position = posKey;
+                btn.textContent = `${posKey} (${POSITIONS[posKey].type})`;
+                btn.className = `position-btn p-2 border rounded-md text-xs sm:text-sm ${playerAllowedPositions.has(posKey) ? 'active' : 'inactive'}`;
+                btn.addEventListener('click', () => {
+                    btn.classList.toggle('active');
+                    btn.classList.toggle('inactive');
+                });
+                containerElement.appendChild(btn);
+            });
+        }
+        
+        function renderFieldPositions() {
+            fieldContainer.innerHTML = ''; 
+            ALL_FIELD_POSITIONS_ORDERED.forEach(posKey => {
+                const posDiv = document.createElement('div');
+                posDiv.id = `field-pos-${posKey}`;
+                posDiv.className = `field-position pos-${posKey}`;
+                posDiv.dataset.position = posKey;
+                posDiv.draggable = false; 
+                posDiv.innerHTML = `<span class="font-bold">${posKey}</span><div class="player-name text-xs"></div>`;
+                
+                posDiv.addEventListener('click', () => handleFieldPositionClick(posKey));
+                posDiv.addEventListener('dragover', handleDragOver);
+                posDiv.addEventListener('dragenter', (e) => handleDragEnterFieldPos(e, posKey));
+                posDiv.addEventListener('dragleave', (e) => handleDragLeaveFieldPos(e, posKey));
+                posDiv.addEventListener('drop', (e) => handleDropOnField(e, posKey));
+                posDiv.addEventListener('dragstart', (e) => handleDragStartFieldPosition(e, posKey)); 
+
+                POSITIONS[posKey].el = posDiv; 
+                fieldContainer.appendChild(posDiv);
+            });
+        }
+
+        // --- Collapsible Sections ---
+        function handleToggleCollapse(event) {
+            const button = event.currentTarget;
+            const targetId = button.dataset.target;
+            const content = document.getElementById(targetId);
+            if (content) {
+                const isCollapsed = content.classList.toggle('collapsed');
+                button.textContent = isCollapsed ? '[+]' : '[–]';
+                if (isCollapsed) {
+                    content.style.paddingTop = '0'; content.style.paddingBottom = '0';
+                } else {
+                    content.style.paddingTop = ''; content.style.paddingBottom = '';
+                }
+            }
+        }
+        
+        // --- Player Management ---
+        function handleAddNewPlayerToList() {
+            const name = newPlayerNameInput.value.trim();
+            if (!name) { newPlayerNameError.classList.remove('hidden'); return; }
+            newPlayerNameError.classList.add('hidden');
+
+            const selectedPositions = new Set();
+            newPositionSelectionDiv.querySelectorAll('.position-btn.active').forEach(btn => selectedPositions.add(btn.dataset.position));
+            const hasInfield = Array.from(selectedPositions).some(p => INFIELD_POSITIONS.includes(p));
+            const hasOutfield = Array.from(selectedPositions).some(p => OUTFIELD_POSITIONS.includes(p));
+            if (!hasInfield || !hasOutfield) { newPositionError.classList.remove('hidden'); return; }
+            newPositionError.classList.add('hidden');
+
+            const newPlayerId = `player_${Date.now()}`;
+            roster.push({ id: newPlayerId, name, allowedPositions: selectedPositions });
+            inningsData.forEach(inning => {
+                if (inning.bench instanceof Set) inning.bench.add(newPlayerId);
+                else inning.bench = new Set([newPlayerId]); 
+            });
+            
+            newPlayerNameInput.value = '';
+            populatePositionButtons(newPositionSelectionDiv); 
+            renderAll(); saveState();
+        }
+
+        function openEditPlayerModal(playerToEdit) {
+            document.getElementById('editModalTitle').textContent = 'Edit Player'; 
+            editPlayerIdInput.value = playerToEdit.id;
+            editPlayerNameInput.value = playerToEdit.name;
+            editPlayerNameError.classList.add('hidden');
+            editPositionError.classList.add('hidden');
+            populatePositionButtons(editPositionSelectionDiv, playerToEdit.allowedPositions);
+            editPlayerModal.classList.add('active');
+        }
+
+        function closeEditPlayerModal() { editPlayerModal.classList.remove('active'); }
+
+        function handleSaveEditedPlayer() {
+            const name = editPlayerNameInput.value.trim();
+            const id = editPlayerIdInput.value;
+            if (!name) { editPlayerNameError.classList.remove('hidden'); return; }
+            editPlayerNameError.classList.add('hidden');
+
+            const selectedPositions = new Set();
+            editPositionSelectionDiv.querySelectorAll('.position-btn.active').forEach(btn => selectedPositions.add(btn.dataset.position));
+            const hasInfield = Array.from(selectedPositions).some(p => INFIELD_POSITIONS.includes(p));
+            const hasOutfield = Array.from(selectedPositions).some(p => OUTFIELD_POSITIONS.includes(p));
+            if (!hasInfield || !hasOutfield) { editPositionError.classList.remove('hidden'); return; }
+            editPositionError.classList.add('hidden');
+
+            const existingPlayerIndex = roster.findIndex(p => p.id === id);
+            if (existingPlayerIndex > -1) {
+                roster[existingPlayerIndex] = { ...roster[existingPlayerIndex], name, allowedPositions: selectedPositions };
+            }
+            closeEditPlayerModal(); renderAll(); saveState();
+        }
+
+        function handleRosterActions(event) {
+            const target = event.target;
+            const playerItem = target.closest('.player-item-roster');
+            if (!playerItem) return;
+            const playerId = playerItem.dataset.playerId;
+            const player = roster.find(p => p.id === playerId);
+            if (!player) return;
+
+            if (target.matches('.edit-btn, .edit-btn *')) openEditPlayerModal(player);
+            else if (target.matches('.delete-btn, .delete-btn *')) {
+                if (confirm(`Are you sure you want to delete ${player.name}? This will remove them from all lineups.`)) {
+                    roster = roster.filter(p => p.id !== playerId);
+                    inningsData.forEach(inning => {
+                        inning.bench.delete(playerId);
+                        ALL_FIELD_POSITIONS_ORDERED.forEach(posKey => {
+                            if (inning.assignments[posKey] === playerId) inning.assignments[posKey] = null;
+                        });
+                    });
+                    if (selectedPlayerId === playerId) selectedPlayerId = null;
+                    renderAll(); saveState();
+                }
+            }
+        }
+        
+        // --- Lineup Management & Click Interactions ---
+        function initializeInningsData() {
+            const rosterPlayerIds = new Set(roster.map(p => p.id));
+            let newInningsData = [];
+
+            inningsData = inningsData.filter(entry => entry.inning <= MAX_INNINGS);
+
+            for (let i = 1; i <= MAX_INNINGS; i++) {
+                let inningDataEntry = inningsData.find(entry => entry.inning === i);
+                if (!inningDataEntry) {
+                    inningDataEntry = {
+                        inning: i,
+                        assignments: ALL_FIELD_POSITIONS_ORDERED.reduce((acc, pos) => ({ ...acc, [pos]: null }), {}),
+                        bench: new Set(rosterPlayerIds) 
+                    };
+                } else {
+                    inningDataEntry.assignments = inningDataEntry.assignments || ALL_FIELD_POSITIONS_ORDERED.reduce((acc, pos) => ({ ...acc, [pos]: null }), {});
+                    inningDataEntry.bench = new Set(inningDataEntry.bench || []); 
+                    const assignedInThisInning = new Set(Object.values(inningDataEntry.assignments).filter(id => id !== null));
+                    rosterPlayerIds.forEach(playerId => {
+                        if (!assignedInThisInning.has(playerId)) inningDataEntry.bench.add(playerId);
+                        else inningDataEntry.bench.delete(playerId); 
+                    });
+                }
+                newInningsData.push(inningDataEntry);
+            }
+            inningsData = newInningsData;
+            if (currentInning > MAX_INNINGS) currentInning = MAX_INNINGS;
+        }
+
+        function getCurrentInningData() {
+            if (inningsData.length !== MAX_INNINGS || !inningsData.every(i => i.inning)) {
+                initializeInningsData();
+            }
+            let inning = inningsData.find(i => i.inning === currentInning);
+            if (!inning) { 
+                console.warn(`Inning data for inning ${currentInning} not found. Re-initializing.`);
+                initializeInningsData(); 
+                inning = inningsData.find(i => i.inning === currentInning);
+                if (!inning) { 
+                    const defaultAssignments = ALL_FIELD_POSITIONS_ORDERED.reduce((acc, pos) => ({ ...acc, [pos]: null }), {});
+                    const defaultBench = new Set(roster.map(p=>p.id));
+                    inning = { inning: currentInning, assignments: defaultAssignments, bench: defaultBench };
+                    inningsData.push(inning); 
+                    inningsData.sort((a,b) => a.inning - b.inning); 
+                    console.error(`Critical: Could not find or create inning ${currentInning}. Using temporary default.`);
+                }
+            }
+            return inning;
+        }
+
+        function handleBenchPlayerClick(event) { 
+            const target = event.target.closest('.bench-player-draggable');
+            if (!target) return;
+            const clickedPlayerId = target.dataset.playerId;
+            selectedPlayerId = (selectedPlayerId === clickedPlayerId) ? null : clickedPlayerId;
+            renderAll(); 
+        }
+
+        function handleFieldPositionClick(posKey) {
+            const inning = getCurrentInningData();
+            const playerCurrentlyAtPos = inning.assignments[posKey];
+
+            if (selectedPlayerId) { 
+                const playerToMove = roster.find(p => p.id === selectedPlayerId);
+                if (!playerToMove) { selectedPlayerId = null; renderAll(); return; }
+
+                if (playerCurrentlyAtPos === selectedPlayerId) { 
+                    inning.assignments[posKey] = null;
+                    inning.bench.add(selectedPlayerId);
+                    selectedPlayerId = null;
+                } else { 
+                    inning.bench.delete(selectedPlayerId); 
+                    ALL_FIELD_POSITIONS_ORDERED.forEach(p => { 
+                        if (inning.assignments[p] === selectedPlayerId) inning.assignments[p] = null;
+                    });
+                    if (playerCurrentlyAtPos) inning.bench.add(playerCurrentlyAtPos);
+                    inning.assignments[posKey] = selectedPlayerId;
+                    selectedPlayerId = null; 
+                }
+            } else if (playerCurrentlyAtPos) { 
+                selectedPlayerId = playerCurrentlyAtPos;
+            }
+            renderAll(); saveState();
+        }
+        
+        function handleFillPositions() { // <<<< UPDATED FUNCTION
+            const inning = getCurrentInningData();
+            const availableBenchPlayerIds = Array.from(inning.bench);
+            let unfilledPositionsLog = [];
+
+            ALL_FIELD_POSITIONS_ORDERED.forEach(posKey => {
+                if (!inning.assignments[posKey]) { // If position is empty
+                    // Find players on bench who can play this position
+                    let suitablePlayers = availableBenchPlayerIds
+                        .map(id => roster.find(p => p.id === id))
+                        .filter(player => player && player.allowedPositions.has(posKey) && inning.bench.has(player.id)); // Ensure they are still on bench
+
+                    if (suitablePlayers.length > 0) {
+                        // Calculate how many times each suitable player has played this position
+                        suitablePlayers.forEach(player => {
+                            player.timesPlayedThisPos = 0;
+                            inningsData.forEach(innData => {
+                                if (innData.assignments[posKey] === player.id) {
+                                    player.timesPlayedThisPos++;
+                                }
+                            });
+                        });
+
+                        // Find the minimum times played for this position among suitable players
+                        const minTimesPlayed = Math.min(...suitablePlayers.map(p => p.timesPlayedThisPos));
+                        
+                        // Filter to get players who have played it the minimum number of times
+                        const leastPlayedSuitablePlayers = suitablePlayers.filter(p => p.timesPlayedThisPos === minTimesPlayed);
+                        
+                        // Randomly select from the least played suitable players
+                        const randomPlayer = leastPlayedSuitablePlayers[Math.floor(Math.random() * leastPlayedSuitablePlayers.length)];
+                        
+                        inning.assignments[posKey] = randomPlayer.id;
+                        inning.bench.delete(randomPlayer.id); 
+                        // Remove the assigned player from availableBenchPlayerIds for subsequent checks in this fill operation
+                        const playerIndexInBenchIds = availableBenchPlayerIds.indexOf(randomPlayer.id);
+                        if (playerIndexInBenchIds > -1) {
+                            availableBenchPlayerIds.splice(playerIndexInBenchIds, 1);
+                        }
+
+                    } else {
+                        unfilledPositionsLog.push(posKey);
+                    }
+                }
+            });
+
+            if (unfilledPositionsLog.length > 0) {
+                fillWarningDiv.textContent = `Could not fill: ${unfilledPositionsLog.join(', ')}. Some players may not have the required allowed positions or bench is empty.`;
+                fillWarningDiv.classList.remove('hidden');
+            } else {
+                fillWarningDiv.classList.add('hidden');
+            }
+            selectedPlayerId = null; 
+            renderAll(); 
+            saveState();
+        }
+
+
+        // --- Drag and Drop Handlers ---
+        function handleDragStartBenchPlayer(event) {
+            const target = event.target.closest('.bench-player-draggable');
+            if (!target) return;
+            const playerId = target.dataset.playerId;
+            draggedPlayerInfo = { id: playerId, originType: 'bench' };
+            event.dataTransfer.setData("text/plain", playerId);
+            event.dataTransfer.effectAllowed = "move";
+            target.classList.add('dragging');
+            selectedPlayerId = null; 
+        }
+
+        function handleDragStartFieldPosition(event, originPosKey) { 
+            const target = event.currentTarget; 
+            const inning = getCurrentInningData();
+            const playerId = inning.assignments[originPosKey];
+            if (!playerId) { event.preventDefault(); return; }
+            draggedPlayerInfo = { id: playerId, originType: 'field', originPosKey: originPosKey };
+            event.dataTransfer.setData("text/plain", playerId);
+            event.dataTransfer.effectAllowed = "move";
+            target.classList.add('dragging'); 
+            selectedPlayerId = null; 
+        }
+
+        function handleDragOver(event) {
+            event.preventDefault(); 
+            event.dataTransfer.dropEffect = "move";
+        }
+
+        function handleDragEnterFieldPos(event, posKey) {
+            event.preventDefault();
+            POSITIONS[posKey]?.el?.classList.add('drag-over-active');
+        }
+        function handleDragLeaveFieldPos(event, posKey) {
+            const fieldPosEl = POSITIONS[posKey]?.el;
+            if (fieldPosEl && !fieldPosEl.contains(event.relatedTarget)) {
+                fieldPosEl.classList.remove('drag-over-active');
+            }
+        }
+        function handleDragEnterBench(event) {
+            event.preventDefault();
+            benchListDiv.classList.add('drag-over-active');
+        }
+        function handleDragLeaveBench(event) {
+             if (!benchListDiv.contains(event.relatedTarget)) {
+                benchListDiv.classList.remove('drag-over-active');
+            }
+        }
+
+        function handleDropOnField(event, targetPosKey) {
+            event.preventDefault();
+            POSITIONS[targetPosKey]?.el?.classList.remove('drag-over-active'); 
+            if (!draggedPlayerInfo) return;
+
+            const inning = getCurrentInningData();
+            const { id: draggedPlayerId, originType, originPosKey: draggedPlayerOriginPosKey } = draggedPlayerInfo;
+
+            if (originType === 'field' && draggedPlayerOriginPosKey === targetPosKey) {
+                cleanupDragState(); return;
+            }
+            
+            const playerAtTargetPos = inning.assignments[targetPosKey];
+
+            if (originType === 'bench') inning.bench.delete(draggedPlayerId);
+            else if (originType === 'field' && draggedPlayerOriginPosKey) inning.assignments[draggedPlayerOriginPosKey] = null;
+            
+            if (playerAtTargetPos && playerAtTargetPos !== draggedPlayerId) inning.bench.add(playerAtTargetPos); 
+            
+            inning.assignments[targetPosKey] = draggedPlayerId;
+            cleanupDragState(); renderAll(); saveState();
+        }
+
+        function handleDropOnBench(event) {
+            event.preventDefault();
+            benchListDiv.classList.remove('drag-over-active'); 
+            if (!draggedPlayerInfo) return;
+
+            const inning = getCurrentInningData();
+            const { id: draggedPlayerId, originType, originPosKey: draggedPlayerOriginPosKey } = draggedPlayerInfo;
+
+            if (originType === 'field' && draggedPlayerOriginPosKey) {
+                inning.assignments[draggedPlayerOriginPosKey] = null; 
+                inning.bench.add(draggedPlayerId); 
+            }
+            cleanupDragState(); renderAll(); saveState();
+        }
+        
+        function cleanupDragState() {
+            if (draggedPlayerInfo) {
+                if (draggedPlayerInfo.originType === 'bench') {
+                    const benchPlayerEl = benchListDiv.querySelector(`.bench-player-draggable[data-player-id="${draggedPlayerInfo.id}"]`);
+                    if (benchPlayerEl) benchPlayerEl.classList.remove('dragging');
+                } else if (draggedPlayerInfo.originType === 'field' && draggedPlayerInfo.originPosKey) {
+                    POSITIONS[draggedPlayerInfo.originPosKey]?.el?.classList.remove('dragging');
+                }
+            }
+            ALL_FIELD_POSITIONS_ORDERED.forEach(posKey => POSITIONS[posKey]?.el?.classList.remove('drag-over-active'));
+            benchListDiv.classList.remove('drag-over-active');
+            draggedPlayerInfo = null;
+            selectedPlayerId = null; 
+        }
+
+        // --- Rendering ---
+        function renderAll() {
+            renderRosterList();
+            renderCurrentInningField();
+            renderCurrentInningBench();
+            renderPlayerSummary(); 
+            renderFullGameLineups(); 
+            updateCurrentInningLabels();
+        }
+        
+        function updateCurrentInningLabels() {
+            currentInningBenchLabel.textContent = currentInning;
+        }
+
+        function renderRosterList() {
+            rosterListDiv.innerHTML = '';
+            if (roster.length === 0) {
+                rosterListDiv.innerHTML = '<p class="text-gray-500">No players in roster. Add some!</p>'; return;
+            }
+            roster.forEach(player => {
+                const div = document.createElement('div');
+                div.className = 'player-item-roster bg-gray-50 p-3 rounded-md shadow-sm flex justify-between items-center';
+                div.dataset.playerId = player.id;
+                div.innerHTML = `
+                    <div>
+                        <span class="font-semibold">${player.name}</span>
+                        <p class="text-xs text-gray-600">${Array.from(player.allowedPositions).join(', ') || 'No positions'}</p>
+                    </div>
+                    <div class="space-x-2">
+                        <button class="edit-btn text-blue-500 hover:text-blue-700 text-sm">Edit</button>
+                        <button class="delete-btn text-red-500 hover:text-red-700 text-sm">Delete</button>
+                    </div>`;
+                rosterListDiv.appendChild(div);
+            });
+        }
+
+        function renderCurrentInningField() {
+            const inning = getCurrentInningData();
+            ALL_FIELD_POSITIONS_ORDERED.forEach(posKey => {
+                const posDiv = POSITIONS[posKey].el;
+                if (!posDiv) return; 
+                const playerNameDiv = posDiv.querySelector('.player-name');
+                const playerIdAtPos = inning.assignments[posKey];
+                
+                posDiv.classList.remove('occupied', 'selected');
+                playerNameDiv.textContent = ''; // Clear previous name
+                posDiv.draggable = false; 
+
+                if (playerIdAtPos) {
+                    const player = roster.find(p => p.id === playerIdAtPos);
+                    // Display up to 12 characters, then ellipsis if longer
+                    playerNameDiv.textContent = player ? (player.name.length > 12 ? player.name.substring(0, 12) + '...' : player.name) : 'Error';
+                    posDiv.draggable = true; 
+                    posDiv.classList.add('occupied');
+                    posDiv.dataset.playerId = playerIdAtPos; 
+                    if (selectedPlayerId === playerIdAtPos && !draggedPlayerInfo) { 
+                         posDiv.classList.add('selected');
+                    }
+                } else {
+                    posDiv.dataset.playerId = ''; 
+                }
+            });
+        }
+
+        function renderCurrentInningBench() {
+            benchListDiv.innerHTML = '';
+            const inning = getCurrentInningData();
+            if (!inning || !inning.bench) {
+                 benchListDiv.innerHTML = '<p class="text-gray-500 text-sm w-full text-center">Bench data unavailable.</p>'; return;
+            }
+            if (inning.bench.size === 0 && roster.length > 0) {
+                 benchListDiv.innerHTML = '<p class="text-gray-500 text-sm w-full text-center">All players assigned.</p>'; return;
+            } else if (roster.length === 0) {
+                 benchListDiv.innerHTML = '<p class="text-gray-500 text-sm w-full text-center">Add players to roster.</p>'; return;
+            }
+
+            inning.bench.forEach(playerId => {
+                const player = roster.find(p => p.id === playerId);
+                if (player) {
+                    const div = document.createElement('div');
+                    div.className = 'bench-player-draggable bg-yellow-100 border border-yellow-300 text-yellow-800 px-3 py-1.5 rounded-md text-sm cursor-grab hover:bg-yellow-200';
+                    div.dataset.playerId = player.id;
+                    div.textContent = player.name;
+                    div.draggable = true;
+                    if (selectedPlayerId === player.id && !draggedPlayerInfo) { 
+                        div.classList.add('ring-2', 'ring-blue-500');
+                    }
+                    benchListDiv.appendChild(div);
+                }
+            });
+        }
+
+        function renderPlayerSummary() { 
+            playerSummaryListDiv.innerHTML = '';
+            if (roster.length === 0) {
+                playerSummaryListDiv.innerHTML = '<p class="text-gray-500">No players.</p>'; return;
+            }
+            roster.forEach(player => {
+                const playedPositionsCount = {}; 
+                let benchCount = 0; 
+
+                inningsData.forEach(inning => {
+                    if (inning && inning.assignments) {
+                        let assignedToField = false;
+                        ALL_FIELD_POSITIONS_ORDERED.forEach(posKey => {
+                            if (inning.assignments[posKey] === player.id) {
+                                playedPositionsCount[posKey] = (playedPositionsCount[posKey] || 0) + 1;
+                                assignedToField = true;
+                            }
+                        });
+                        if (!assignedToField && inning.bench && inning.bench.has(player.id)) {
+                            benchCount++;
+                        }
+                    } else if (inning && inning.bench && inning.bench.has(player.id)) {
+                        benchCount++;
+                    }
+                });
+
+                const playerDiv = document.createElement('div');
+                playerDiv.className = 'player-summary-item'; 
+
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'font-medium mr-2'; 
+                nameSpan.textContent = `${player.name}:`;
+                playerDiv.appendChild(nameSpan);
+
+                const positionKeys = Object.keys(playedPositionsCount);
+                let hasPlayedOrBenched = positionKeys.length > 0 || benchCount > 0;
+
+                if (positionKeys.length > 0) {
+                    positionKeys.sort((a, b) => ALL_FIELD_POSITIONS_ORDERED.indexOf(a) - ALL_FIELD_POSITIONS_ORDERED.indexOf(b)); 
+                    positionKeys.forEach(posKey => {
+                        const count = playedPositionsCount[posKey];
+                        const pill = document.createElement('span');
+                        pill.className = 'pos-pill';
+                        if (INFIELD_POSITIONS.includes(posKey)) pill.classList.add('pos-pill-infield');
+                        else if (OUTFIELD_POSITIONS.includes(posKey)) pill.classList.add('pos-pill-outfield');
+                        pill.textContent = `${posKey} (${count})`;
+                        playerDiv.appendChild(pill);
+                    });
+                }
+                
+                if (benchCount > 0) {
+                    const benchPill = document.createElement('span');
+                    benchPill.className = 'pos-pill pos-pill-bench'; 
+                    benchPill.textContent = `Bench (${benchCount})`;
+                    playerDiv.appendChild(benchPill);
+                }
+
+                if (!hasPlayedOrBenched) { 
+                    const noneSpan = document.createElement('span');
+                    noneSpan.textContent = 'None';
+                    playerDiv.appendChild(noneSpan);
+                }
+                playerSummaryListDiv.appendChild(playerDiv);
+            });
+        }
+
+        function renderFullGameLineups() { 
+            fullGameLineupsListDiv.innerHTML = ''; 
+            if (inningsData.length === 0 && roster.length === 0) {
+                fullGameLineupsListDiv.innerHTML = '<p class="text-gray-500">No lineup data. Add players to the roster and assign them.</p>';
+                return;
+            }
+             if (inningsData.length === 0 && roster.length > 0) {
+                fullGameLineupsListDiv.innerHTML = '<p class="text-gray-500">No lineup data. Assign players to positions.</p>';
+                return;
+            }
+
+            const table = document.createElement('table');
+            const thead = document.createElement('thead');
+            const tbody = document.createElement('tbody');
+
+            const headerRow = document.createElement('tr');
+            const thInning = document.createElement('th');
+            thInning.textContent = 'Inn';
+            headerRow.appendChild(thInning);
+            ALL_FIELD_POSITIONS_ORDERED.forEach(posKey => {
+                const th = document.createElement('th');
+                th.textContent = posKey;
+                headerRow.appendChild(th);
+            });
+            const thBench = document.createElement('th');
+            thBench.textContent = 'Bench';
+            headerRow.appendChild(thBench);
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+
+            const sortedInningsData = [...inningsData].sort((a, b) => a.inning - b.inning);
+            sortedInningsData.forEach(inningData => {
+                if (inningData.inning > MAX_INNINGS) return; 
+
+                const tr = document.createElement('tr');
+                const tdInning = document.createElement('td');
+                tdInning.textContent = inningData.inning;
+                tr.appendChild(tdInning);
+
+                ALL_FIELD_POSITIONS_ORDERED.forEach(posKey => {
+                    const td = document.createElement('td');
+                    const playerId = inningData.assignments[posKey];
+                    const player = playerId ? roster.find(p => p.id === playerId) : null;
+                    td.innerHTML = player ? (player.name.length > 10 ? player.name.substring(0, 10) + '...' : player.name) : '-'; 
+                    tr.appendChild(td);
+                });
+
+                const tdBench = document.createElement('td');
+                tdBench.className = 'bench-cell';
+                const benchPlayerNames = Array.from(inningData.bench)
+                                           .map(pid => roster.find(p => p.id === pid)?.name)
+                                           .filter(Boolean); 
+                tdBench.textContent = benchPlayerNames.length > 0 ? benchPlayerNames.join(', ') : '-'; 
+                tr.appendChild(tdBench);
+                tbody.appendChild(tr);
+            });
+
+            table.appendChild(tbody);
+            fullGameLineupsListDiv.appendChild(table);
+        }
+
+        // --- Persistence ---
+        function saveState() {
+            const inningsToSave = inningsData.filter(i => i.inning <= MAX_INNINGS);
+            const serializableRoster = roster.map(p => ({ ...p, allowedPositions: Array.from(p.allowedPositions) }));
+            const serializableInningsData = inningsToSave.map(i => ({
+                ...i,
+                assignments: i.assignments || {}, 
+                bench: Array.from(i.bench || []) 
+            }));
+            localStorage.setItem('baseballLineupApp_roster', JSON.stringify(serializableRoster));
+            localStorage.setItem('baseballLineupApp_inningsData', JSON.stringify(serializableInningsData));
+            localStorage.setItem('baseballLineupApp_currentInning', Math.min(currentInning, MAX_INNINGS).toString());
+        }
+
+        function loadState() {
+            const storedRoster = localStorage.getItem('baseballLineupApp_roster');
+            const storedInningsData = localStorage.getItem('baseballLineupApp_inningsData');
+            let storedCurrentInning = localStorage.getItem('baseballLineupApp_currentInning');
+
+            if (storedRoster) {
+                const parsedRoster = JSON.parse(storedRoster);
+                roster = parsedRoster.map(p => ({ ...p, allowedPositions: new Set(p.allowedPositions || []) }));
+            }
+            if (storedInningsData) {
+                const parsedInnings = JSON.parse(storedInningsData);
+                inningsData = parsedInnings.map(i => ({
+                    ...i,
+                    assignments: i.assignments || ALL_FIELD_POSITIONS_ORDERED.reduce((acc, pos) => ({ ...acc, [pos]: null }), {}),
+                    bench: new Set(i.bench || [])
+                })).filter(i => i.inning <= MAX_INNINGS); 
+            }
+            
+            currentInning = storedCurrentInning ? parseInt(storedCurrentInning) : 1;
+            currentInning = Math.max(1, Math.min(currentInning, MAX_INNINGS)); 
+            
+            initializeInningsData(); 
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
