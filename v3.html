@@ -55,7 +55,7 @@
             background-color: #f0fdf4; 
             border: 1px solid #bbf7d0; 
             border-radius: 0.5rem; 
-            padding: 0.5rem; /* Slightly reduced padding */
+            padding: 0.5rem; 
             overflow: hidden; 
         }
         .field-diamond { 
@@ -115,16 +115,16 @@
         
         /* Positioning adjusted for larger boxes and more infield spacing */
         .pos-P  { top: 50%; left: 50%; transform: translate(-50%, -50%); } 
-        .pos-C  { top: 80%; left: 50%; transform: translate(-50%, -50%); } /* Moved slightly up from 78% for better spacing */
-        .pos-1B { top: 50%; left: 80%; transform: translate(-50%, -50%); } /* Pushed further out */
-        .pos-2B { top: 30%; left: 70%; transform: translate(-50%, -50%); } /* Pushed further out and up */
-        .pos-SS { top: 30%; left: 30%; transform: translate(-50%, -50%); } /* Pushed further out and up */
-        .pos-3B { top: 50%; left: 20%; transform: translate(-50%, -50%); } /* Pushed further out */
-        /* Outfielders adjusted slightly for overall balance */
-        .pos-LF { top: 8%; left: 8%; transform: translate(-50%, -50%); } 
-        .pos-LCF { top: 0%; left: 35%; transform: translate(-50%, -50%); } /* Closer to top edge */
-        .pos-RCF { top: 0%; left: 65%; transform: translate(-50%, -50%); } /* Closer to top edge */
-        .pos-RF { top: 8%; left: 92%; transform: translate(-50%, -50%); } 
+        .pos-C  { top: 80%; left: 50%; transform: translate(-50%, -50%); } 
+        .pos-1B { top: 50%; left: 80%; transform: translate(-50%, -50%); } 
+        .pos-2B { top: 30%; left: 70%; transform: translate(-50%, -50%); } 
+        .pos-SS { top: 30%; left: 30%; transform: translate(-50%, -50%); } 
+        .pos-3B { top: 50%; left: 20%; transform: translate(-50%, -50%); } 
+        /* Outfielders moved down slightly */
+        .pos-LF { top: 10%; left: 8%; transform: translate(-50%, -50%); }  /* Adjusted from 8% to 10% top */
+        .pos-LCF { top: 5%; left: 35%; transform: translate(-50%, -50%); } /* Adjusted from 0% to 5% top */
+        .pos-RCF { top: 5%; left: 65%; transform: translate(-50%, -50%); } /* Adjusted from 0% to 5% top */
+        .pos-RF { top: 10%; left: 92%; transform: translate(-50%, -50%); }  /* Adjusted from 8% to 10% top */
 
 
         .modal { display: none; }
@@ -348,7 +348,7 @@
         const editPositionSelectionDiv = document.getElementById('editPositionSelection');
         const editPositionError = document.getElementById('editPositionError');
         const rosterListDiv = document.getElementById('rosterList');
-        const inningTabsContainer = document.getElementById('inningTabsContainer'); // <<<< NEW for tabs
+        const inningTabsContainer = document.getElementById('inningTabsContainer'); 
         const fillPositionsBtn = document.getElementById('fillPositionsBtn');
         const fillWarningDiv = document.getElementById('fillWarning');
         const fieldContainer = document.getElementById('fieldContainer');
@@ -361,7 +361,7 @@
         // --- Initialization ---
         function init() {
             loadState(); 
-            renderInningTabs(); // <<<< CHANGED from populateInningSelector
+            renderInningTabs(); 
             populatePositionButtons(newPositionSelectionDiv); 
             renderFieldPositions(); 
             renderAll(); 
@@ -372,7 +372,6 @@
             addPlayerToListBtn.addEventListener('click', handleAddNewPlayerToList);
             cancelEditPlayerModalBtn.addEventListener('click', closeEditPlayerModal);
             saveEditedPlayerBtn.addEventListener('click', handleSaveEditedPlayer);
-            // Event listener for tabs is now set up in renderInningTabs
             fillPositionsBtn.addEventListener('click', handleFillPositions);
             rosterListDiv.addEventListener('click', handleRosterActions);
             benchListDiv.addEventListener('click', handleBenchPlayerClick); 
@@ -387,8 +386,8 @@
             });
         }
 
-        function renderInningTabs() { // <<<< NEW FUNCTION
-            inningTabsContainer.innerHTML = ''; // Clear existing tabs
+        function renderInningTabs() { 
+            inningTabsContainer.innerHTML = ''; 
             for (let i = 1; i <= MAX_INNINGS; i++) {
                 const tab = document.createElement('button');
                 tab.type = 'button';
@@ -401,13 +400,13 @@
                 tab.addEventListener('click', () => {
                     currentInning = parseInt(tab.dataset.inning);
                     selectedPlayerId = null;
-                    renderInningTabs(); // Re-render tabs to update active state
+                    renderInningTabs(); 
                     renderAll();
                     saveState();
                 });
                 inningTabsContainer.appendChild(tab);
             }
-             if (currentInning > MAX_INNINGS) currentInning = MAX_INNINGS; // Ensure valid currentInning
+             if (currentInning > MAX_INNINGS) currentInning = MAX_INNINGS; 
         }
 
 
@@ -790,7 +789,7 @@
             renderPlayerSummary(); 
             renderFullGameLineups(); 
             updateCurrentInningLabels();
-            renderInningTabs(); // Ensure tabs are re-rendered to reflect currentInning
+            renderInningTabs(); 
         }
         
         function updateCurrentInningLabels() {
