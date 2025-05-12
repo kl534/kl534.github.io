@@ -219,6 +219,13 @@
         #fullGameLineupsList { 
              margin-top: 0.5rem;
         }
+        .action-buttons-group { /* For Fill/Clear buttons */
+            display: flex;
+            flex-wrap: wrap; /* Allow wrapping on small screens */
+            gap: 0.5rem; /* Space between buttons */
+            margin-left: auto; /* Push to the right if space allows */
+        }
+
 
     </style>
 </head>
@@ -265,13 +272,14 @@
                 <div id="lineupContent" class="collapsible-content space-y-4 pt-4">
                     <div>
                         <h3 class="inning-selector-header">Inning:</h3>
-                        <div class="flex items-center justify-between flex-wrap"> {/* Developer comment: Added flex-wrap for smaller screens */}
+                        <div class="flex items-center justify-between flex-wrap"> 
                             <div id="inningTabsContainer" class="inning-tabs-container">
-                                
-                            </div>
-                            <div class="flex gap-2 mt-2 md:mt-0"> 
+                                </div>
+                            <div class="action-buttons-group mt-2 md:mt-0"> 
                                 <button id="fillInningBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-3 text-sm rounded-lg transition duration-150 whitespace-nowrap">Fill Inning</button>
                                 <button id="fillGameBtn" class="bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-3 text-sm rounded-lg transition duration-150 whitespace-nowrap">Fill Game</button>
+                                <button id="clearInningBtn" class="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-3 text-sm rounded-lg transition duration-150 whitespace-nowrap">Clear Inning</button>
+                                <button id="clearGameBtn" class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-3 text-sm rounded-lg transition duration-150 whitespace-nowrap">Clear Game</button>
                             </div>
                         </div>
                     </div>
@@ -282,14 +290,12 @@
                             <div class="pitchers-mound"></div>
                         </div>
                         <div id="fieldContainer">
-                            
-                        </div>
+                            </div>
                     </div>
                     <div>
                         <h3 class="text-xl font-semibold text-gray-700 mt-4">Bench (Inning <span id="currentInningBenchLabel">1</span>)</h3>
                         <div id="benchList" class="mt-2 p-3 bg-gray-50 border-2 border-dashed border-transparent rounded-lg min-h-[80px] space-y-1 overflow-y-auto max-h-48 flex flex-wrap gap-2">
-                            
-                        </div>
+                            </div>
                     </div>
                 </div>
             </div>
@@ -348,8 +354,8 @@
             RCF: { name: "Right Center Field", type: "outfield", el: null }, RF: { name: "Right Field", type: "outfield", el: null }
         };
         const ALL_FIELD_POSITIONS_ORDERED = ["P", "C", "1B", "2B", "SS", "3B", "LF", "LCF", "RCF", "RF"];
-        const INFIELD_POSITIONS_ORDERED = ["P", "C", "1B", "2B", "SS", "3B"]; // For summary grouping
-        const OUTFIELD_POSITIONS_ORDERED = ["LF", "LCF", "RCF", "RF"]; // For summary grouping
+        const INFIELD_POSITIONS_ORDERED = ["P", "C", "1B", "2B", "SS", "3B"]; 
+        const OUTFIELD_POSITIONS_ORDERED = ["LF", "LCF", "RCF", "RF"]; 
 
         const MAX_INNINGS = 6; 
 
@@ -377,6 +383,8 @@
         const inningTabsContainer = document.getElementById('inningTabsContainer'); 
         const fillInningBtn = document.getElementById('fillInningBtn'); 
         const fillGameBtn = document.getElementById('fillGameBtn');   
+        const clearInningBtn = document.getElementById('clearInningBtn'); // New Button
+        const clearGameBtn = document.getElementById('clearGameBtn');   // New Button
         const fillWarningDiv = document.getElementById('fillWarning');
         const fieldContainer = document.getElementById('fieldContainer');
         const benchListDiv = document.getElementById('benchList');
@@ -399,8 +407,10 @@
             addPlayerToListBtn.addEventListener('click', handleAddNewPlayerToList);
             cancelEditPlayerModalBtn.addEventListener('click', closeEditPlayerModal);
             saveEditedPlayerBtn.addEventListener('click', handleSaveEditedPlayer);
-            fillInningBtn.addEventListener('click', () => handleFillSingleInning(currentInning)); 
+            fillInningBtn.addEventListener('click', () => handleFillSingleInning(currentInning, true)); // Pass true to show warning for this specific action
             fillGameBtn.addEventListener('click', handleFillGame); 
+            clearInningBtn.addEventListener('click', handleClearInning); // New listener
+            clearGameBtn.addEventListener('click', handleClearGame);     // New listener
             rosterListDiv.addEventListener('click', handleRosterActions);
             benchListDiv.addEventListener('click', handleBenchPlayerClick); 
             benchListDiv.addEventListener('dragover', handleDragOver);
@@ -659,11 +669,11 @@
             renderAll(); saveState();
         }
         
-        function handleFillSingleInning(inningNumToFill) {
+        function handleFillSingleInning(inningNumToFill, showWarningForThisInning = false) {
             const inningToProcess = inningsData.find(i => i.inning === inningNumToFill);
             if (!inningToProcess) {
                 console.error(`Could not find inning data for inning ${inningNumToFill} to fill.`);
-                return false; // Indicate failure
+                return false; 
             }
 
             const availableBenchPlayerIds = Array.from(inningToProcess.bench);
@@ -687,7 +697,7 @@
                         const minTimesPlayed = Math.min(...suitablePlayers.map(p => p.timesPlayedThisPos));
                         const leastPlayedSuitablePlayers = suitablePlayers.filter(p => p.timesPlayedThisPos === minTimesPlayed);
                         
-                        if (leastPlayedSuitablePlayers.length > 0) { // Ensure there's at least one player
+                        if (leastPlayedSuitablePlayers.length > 0) { 
                             const randomPlayer = leastPlayedSuitablePlayers[Math.floor(Math.random() * leastPlayedSuitablePlayers.length)];
                             
                             inningToProcess.assignments[posKey] = randomPlayer.id;
@@ -696,7 +706,7 @@
                             if (playerIndexInBenchIds > -1) {
                                 availableBenchPlayerIds.splice(playerIndexInBenchIds, 1);
                             }
-                        } else { // Should not happen if suitablePlayers.length > 0, but as a safeguard
+                        } else { 
                              unfilledPositionsLog.push(posKey);
                         }
                     } else {
@@ -705,7 +715,7 @@
                 }
             });
 
-            if (inningNumToFill === currentInning) { 
+            if (showWarningForThisInning) { 
                 if (unfilledPositionsLog.length > 0) {
                     fillWarningDiv.textContent = `Could not fill for Inning ${inningNumToFill}: ${unfilledPositionsLog.join(', ')}.`;
                     fillWarningDiv.classList.remove('hidden');
@@ -718,22 +728,102 @@
 
         function handleFillGame() {
             let gameFullyFilled = true;
-            let warnings = [];
+            let firstUnfilledInning = -1;
+            let firstUnfilledLog = [];
+
             for (let i = 1; i <= MAX_INNINGS; i++) {
-                const success = handleFillSingleInning(i);
-                if (!success) {
+                const inningToProcess = inningsData.find(inn => inn.inning === i);
+                if (!inningToProcess) continue;
+
+                const availableBenchPlayerIds = Array.from(inningToProcess.bench);
+                let currentInningUnfilledLog = [];
+
+                 ALL_FIELD_POSITIONS_ORDERED.forEach(posKey => {
+                    if (!inningToProcess.assignments[posKey]) { 
+                        let suitablePlayers = availableBenchPlayerIds
+                            .map(id => roster.find(p => p.id === id))
+                            .filter(player => player && player.allowedPositions.has(posKey) && inningToProcess.bench.has(player.id)); 
+
+                        if (suitablePlayers.length > 0) {
+                            suitablePlayers.forEach(player => {
+                                player.timesPlayedThisPos = 0;
+                                inningsData.forEach(innData => { 
+                                    if (innData.assignments[posKey] === player.id) {
+                                        player.timesPlayedThisPos++;
+                                    }
+                                });
+                            });
+                            const minTimesPlayed = Math.min(...suitablePlayers.map(p => p.timesPlayedThisPos));
+                            const leastPlayedSuitablePlayers = suitablePlayers.filter(p => p.timesPlayedThisPos === minTimesPlayed);
+                            
+                            if (leastPlayedSuitablePlayers.length > 0) { 
+                                const randomPlayer = leastPlayedSuitablePlayers[Math.floor(Math.random() * leastPlayedSuitablePlayers.length)];
+                                inningToProcess.assignments[posKey] = randomPlayer.id;
+                                inningToProcess.bench.delete(randomPlayer.id); 
+                                const playerIndexInBenchIds = availableBenchPlayerIds.indexOf(randomPlayer.id);
+                                if (playerIndexInBenchIds > -1) {
+                                    availableBenchPlayerIds.splice(playerIndexInBenchIds, 1);
+                                }
+                            } else { 
+                                currentInningUnfilledLog.push(posKey);
+                            }
+                        } else {
+                            currentInningUnfilledLog.push(posKey);
+                        }
+                    }
+                });
+                if (currentInningUnfilledLog.length > 0) {
                     gameFullyFilled = false;
-                    // We can collect more specific warnings if needed, but for now, a general one.
+                    if (firstUnfilledInning === -1) {
+                        firstUnfilledInning = i;
+                        firstUnfilledLog = currentInningUnfilledLog;
+                    }
                 }
             }
+
             if (!gameFullyFilled) {
-                 fillWarningDiv.textContent = `Could not fill all positions for all innings. Check individual innings for details.`;
+                 fillWarningDiv.textContent = `Could not fill all positions. First issue in Inning ${firstUnfilledInning}: ${firstUnfilledLog.join(', ')}.`;
                  fillWarningDiv.classList.remove('hidden');
             } else {
                  fillWarningDiv.classList.add('hidden'); 
             }
             selectedPlayerId = null; 
             renderAll(); 
+            saveState();
+        }
+
+        function handleClearInning() {
+            if (!confirm(`Are you sure you want to clear all assignments for Inning ${currentInning}? Players will be moved to the bench.`)) {
+                return;
+            }
+            const inning = getCurrentInningData();
+            ALL_FIELD_POSITIONS_ORDERED.forEach(posKey => {
+                const playerId = inning.assignments[posKey];
+                if (playerId) {
+                    inning.bench.add(playerId);
+                    inning.assignments[posKey] = null;
+                }
+            });
+            fillWarningDiv.classList.add('hidden'); // Clear any previous fill warnings
+            renderAll();
+            saveState();
+        }
+
+        function handleClearGame() {
+            if (!confirm("Are you sure you want to clear all assignments for the entire game? All players will be moved to their respective inning's bench.")) {
+                return;
+            }
+            inningsData.forEach(inning => {
+                ALL_FIELD_POSITIONS_ORDERED.forEach(posKey => {
+                    const playerId = inning.assignments[posKey];
+                    if (playerId) {
+                        inning.bench.add(playerId);
+                        inning.assignments[posKey] = null;
+                    }
+                });
+            });
+            fillWarningDiv.classList.add('hidden'); // Clear any previous fill warnings
+            renderAll();
             saveState();
         }
 
