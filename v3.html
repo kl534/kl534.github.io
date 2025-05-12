@@ -23,26 +23,26 @@
         .inning-tabs-container {
             display: flex;
             flex-wrap: wrap;
-            gap: 0.5rem; /* 8px */
-            margin-bottom: 1rem; /* 16px */
+            gap: 0.5rem; 
+            margin-bottom: 1rem; 
         }
         .inning-tab {
-            padding: 0.5rem 1rem; /* 8px 16px */
-            border: 1px solid #d1d5db; /* gray-300 */
-            border-radius: 0.375rem; /* rounded-md */
-            background-color: #f9fafb; /* gray-50 */
-            color: #374151; /* gray-700 */
+            padding: 0.5rem 1rem; 
+            border: 1px solid #d1d5db; 
+            border-radius: 0.375rem; 
+            background-color: #f9fafb; 
+            color: #374151; 
             cursor: pointer;
             font-weight: 500;
             transition: background-color 0.2s, color 0.2s, border-color 0.2s;
         }
         .inning-tab:hover {
-            background-color: #f3f4f6; /* gray-100 */
+            background-color: #f3f4f6; 
         }
         .inning-tab.active {
-            background-color: #2563eb; /* blue-600 */
+            background-color: #2563eb; 
             color: white;
-            border-color: #2563eb; /* blue-600 */
+            border-color: #2563eb; 
         }
 
         /* Field Visualization Area & Decorative Elements */
@@ -115,16 +115,16 @@
         
         /* Positioning adjusted for larger boxes and more infield spacing */
         .pos-P  { top: 50%; left: 50%; transform: translate(-50%, -50%); } 
-        .pos-C  { top: 80%; left: 50%; transform: translate(-50%, -50%); } 
-        .pos-1B { top: 50%; left: 80%; transform: translate(-50%, -50%); } 
-        .pos-2B { top: 30%; left: 70%; transform: translate(-50%, -50%); } 
-        .pos-SS { top: 30%; left: 30%; transform: translate(-50%, -50%); } 
-        .pos-3B { top: 50%; left: 20%; transform: translate(-50%, -50%); } 
-        /* Outfielders moved down slightly */
-        .pos-LF { top: 10%; left: 8%; transform: translate(-50%, -50%); }  /* Adjusted from 8% to 10% top */
-        .pos-LCF { top: 5%; left: 35%; transform: translate(-50%, -50%); } /* Adjusted from 0% to 5% top */
-        .pos-RCF { top: 5%; left: 65%; transform: translate(-50%, -50%); } /* Adjusted from 0% to 5% top */
-        .pos-RF { top: 10%; left: 92%; transform: translate(-50%, -50%); }  /* Adjusted from 8% to 10% top */
+        .pos-C  { top: 82%; left: 50%; transform: translate(-50%, -50%); } /* Moved slightly up for clearance */
+        .pos-1B { top: 50%; left: 82%; transform: translate(-50%, -50%); } /* Pushed further out */
+        .pos-2B { top: 28%; left: 72%; transform: translate(-50%, -50%); } /* Pushed further out and up */
+        .pos-SS { top: 28%; left: 28%; transform: translate(-50%, -50%); } /* Pushed further out and up (mirrored 2B) */
+        .pos-3B { top: 50%; left: 18%; transform: translate(-50%, -50%); } /* Pushed further out */
+        /* Outfielders adjusted slightly for overall balance and to avoid top edge */
+        .pos-LF { top: 10%; left: 5%; transform: translate(-50%, -50%); } 
+        .pos-LCF { top: 2%; left: 35%; transform: translate(-50%, -50%); } 
+        .pos-RCF { top: 2%; left: 65%; transform: translate(-50%, -50%); } 
+        .pos-RF { top: 10%; left: 95%; transform: translate(-50%, -50%); } 
 
 
         .modal { display: none; }
@@ -152,27 +152,6 @@
         .toggle-btn {
             margin-left: auto; padding: 0.25rem 0.5rem; font-size: 0.875rem;
             font-weight: 600; border: 1px solid #d1d5db; border-radius: 0.375rem; 
-        }
-        /* Summary Table Styles */
-        #fullGameLineupsList table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 0.5rem;
-            font-size: 0.8rem; 
-        }
-        #fullGameLineupsList th, #fullGameLineupsList td {
-            border: 1px solid #e5e7eb; 
-            padding: 4px 6px;
-            text-align: left;
-            vertical-align: top;
-        }
-        #fullGameLineupsList th {
-            background-color: #f9fafb; 
-            font-weight: 600;
-        }
-        #fullGameLineupsList td.bench-cell {
-            min-width: 100px; 
-            word-break: break-word;
         }
         /* Player Summary Pill Styles */
         .player-summary-item {
@@ -202,6 +181,34 @@
             background-color: #fee2e2; 
             color: #991b1b; 
             border: 1px solid #fecaca; 
+        }
+        /* New Summary Layout Styles */
+        .summary-inning-block {
+            padding: 0.5rem;
+            margin-bottom: 0.75rem;
+            border: 1px solid #e5e7eb; /* gray-200 */
+            border-radius: 0.375rem; /* rounded-md */
+            background-color: #f9fafb; /* gray-50 */
+        }
+        .summary-inning-block h4 { /* Inning Title */
+            font-size: 1rem; /* text-base */
+            font-weight: 600;
+            color: #1d4ed8; /* blue-700 */
+            margin-bottom: 0.25rem;
+        }
+        .summary-line {
+            margin-bottom: 0.125rem; /* 2px */
+            font-size: 0.875rem; /* text-sm */
+        }
+        .summary-line .label {
+            font-weight: 500;
+            color: #4b5563; /* gray-600 */
+        }
+        .summary-line .players {
+            color: #1f2937; /* gray-800 */
+        }
+        .summary-line .players em { /* For empty slots */
+            color: #9ca3af; /* gray-400 */
         }
 
     </style>
@@ -939,7 +946,7 @@
             });
         }
 
-        function renderFullGameLineups() { 
+        function renderFullGameLineups() { // <<<< UPDATED FUNCTION
             fullGameLineupsListDiv.innerHTML = ''; 
             if (inningsData.length === 0 && roster.length === 0) {
                 fullGameLineupsListDiv.innerHTML = '<p class="text-gray-500">No lineup data. Add players to the roster and assign them.</p>';
@@ -950,55 +957,61 @@
                 return;
             }
 
-            const table = document.createElement('table');
-            const thead = document.createElement('thead');
-            const tbody = document.createElement('tbody');
-
-            const headerRow = document.createElement('tr');
-            const thInning = document.createElement('th');
-            thInning.textContent = 'Inn';
-            headerRow.appendChild(thInning);
-            ALL_FIELD_POSITIONS_ORDERED.forEach(posKey => {
-                const th = document.createElement('th');
-                th.textContent = posKey;
-                headerRow.appendChild(th);
-            });
-            const thBench = document.createElement('th');
-            thBench.textContent = 'Bench';
-            headerRow.appendChild(thBench);
-            thead.appendChild(headerRow);
-            table.appendChild(thead);
-
             const sortedInningsData = [...inningsData].sort((a, b) => a.inning - b.inning);
             sortedInningsData.forEach(inningData => {
                 if (inningData.inning > MAX_INNINGS) return; 
 
-                const tr = document.createElement('tr');
-                const tdInning = document.createElement('td');
-                tdInning.textContent = inningData.inning;
-                tr.appendChild(tdInning);
+                const inningBlock = document.createElement('div');
+                inningBlock.className = 'summary-inning-block';
 
-                ALL_FIELD_POSITIONS_ORDERED.forEach(posKey => {
-                    const td = document.createElement('td');
+                const inningTitle = document.createElement('h4');
+                inningTitle.textContent = `Inning ${inningData.inning}`;
+                inningBlock.appendChild(inningTitle);
+
+                // Infield Line
+                const infieldLine = document.createElement('div');
+                infieldLine.className = 'summary-line';
+                let infieldHtml = '<span class="label">Infield:</span> <span class="players">';
+                let infieldPlayers = [];
+                INFIELD_POSITIONS.forEach(posKey => {
                     const playerId = inningData.assignments[posKey];
                     const player = playerId ? roster.find(p => p.id === playerId) : null;
-                    td.innerHTML = player ? (player.name.length > 10 ? player.name.substring(0, 10) + '...' : player.name) : '-'; 
-                    tr.appendChild(td);
+                    infieldPlayers.push(`${posKey} - ${player ? (player.name.length > 10 ? player.name.substring(0,10) + '...' : player.name) : '<em>Empty</em>'}`);
                 });
+                infieldHtml += infieldPlayers.join(', ') + '</span>';
+                infieldLine.innerHTML = infieldHtml;
+                inningBlock.appendChild(infieldLine);
 
-                const tdBench = document.createElement('td');
-                tdBench.className = 'bench-cell';
+                // Outfield Line
+                const outfieldLine = document.createElement('div');
+                outfieldLine.className = 'summary-line';
+                let outfieldHtml = '<span class="label">Outfield:</span> <span class="players">';
+                let outfieldPlayers = [];
+                OUTFIELD_POSITIONS.forEach(posKey => {
+                    const playerId = inningData.assignments[posKey];
+                    const player = playerId ? roster.find(p => p.id === playerId) : null;
+                    outfieldPlayers.push(`${posKey} - ${player ? (player.name.length > 10 ? player.name.substring(0,10) + '...' : player.name) : '<em>Empty</em>'}`);
+                });
+                outfieldHtml += outfieldPlayers.join(', ') + '</span>';
+                outfieldLine.innerHTML = outfieldHtml;
+                inningBlock.appendChild(outfieldLine);
+                
+                // Bench Line
+                const benchLine = document.createElement('div');
+                benchLine.className = 'summary-line';
+                let benchHtml = '<span class="label">Bench:</span> <span class="players">';
                 const benchPlayerNames = Array.from(inningData.bench)
                                            .map(pid => roster.find(p => p.id === pid)?.name)
                                            .filter(Boolean); 
-                tdBench.textContent = benchPlayerNames.length > 0 ? benchPlayerNames.join(', ') : '-'; 
-                tr.appendChild(tdBench);
-                tbody.appendChild(tr);
-            });
+                benchHtml += benchPlayerNames.length > 0 ? benchPlayerNames.join(', ') : '<em>Empty</em>';
+                benchHtml += '</span>';
+                benchLine.innerHTML = benchHtml;
+                inningBlock.appendChild(benchLine);
 
-            table.appendChild(tbody);
-            fullGameLineupsListDiv.appendChild(table);
+                fullGameLineupsListDiv.appendChild(inningBlock);
+            });
         }
+
 
         // --- Persistence ---
         function saveState() {
