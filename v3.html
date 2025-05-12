@@ -56,7 +56,7 @@
             position: relative;
             width: 100%;
             aspect-ratio: 1 / 1; 
-            max-width: 500px; /* INCREASED for more space */
+            max-width: 500px; 
             margin: auto;
             background-color: #f0fdf4; 
             border: 1px solid #bbf7d0; 
@@ -119,18 +119,16 @@
         .field-position.selected { outline: 2px solid #2563eb; outline-offset: 1px; }
         .field-position.drag-over-active { border-color: #2563eb; background-color: #bfdbfe; }
         
-        /* Positioning adjusted for larger boxes and more infield spacing */
         .pos-P  { top: 50%; left: 50%; transform: translate(-50%, -50%); } 
         .pos-C  { top: 82%; left: 50%; transform: translate(-50%, -50%); } 
         .pos-1B { top: 50%; left: 80%; transform: translate(-50%, -50%); } 
         .pos-2B { top: 28%; left: 72%; transform: translate(-50%, -50%); } 
         .pos-SS { top: 28%; left: 28%; transform: translate(-50%, -50%); } 
         .pos-3B { top: 50%; left: 20%; transform: translate(-50%, -50%); } 
-        /* Outfielders adjusted slightly for overall balance and to avoid top edge */
-        .pos-LF { top: 10%; left: 10%; transform: translate(-50%, -50%); } /* Further from edge */
-        .pos-LCF { top: 5%; left: 38%; transform: translate(-50%, -50%); } /* Further from edge, slight horizontal adjust */
-        .pos-RCF { top: 5%; left: 62%; transform: translate(-50%, -50%); } /* Further from edge, slight horizontal adjust */
-        .pos-RF { top: 10%; left: 90%; transform: translate(-50%, -50%); } /* Further from edge */
+        .pos-LF { top: 10%; left: 10%; transform: translate(-50%, -50%); } 
+        .pos-LCF { top: 5%; left: 38%; transform: translate(-50%, -50%); } 
+        .pos-RCF { top: 5%; left: 62%; transform: translate(-50%, -50%); } 
+        .pos-RF { top: 10%; left: 90%; transform: translate(-50%, -50%); } 
 
 
         .modal { display: none; }
@@ -203,22 +201,22 @@
             margin-bottom: 0.25rem;
         }
         .summary-line {
-            margin-bottom: 0.25rem; /* Increased spacing between lines */
+            margin-bottom: 0.35rem; /* Slightly more spacing */
             font-size: 0.875rem; 
-            line-height: 1.5; /* Improved line height for readability */
+            line-height: 1.6; /* Improved line height */
         }
-        .summary-line strong { /* For position labels */
+        .summary-line strong { 
             font-weight: 600;
-            color: #374151; /* gray-700 */
+            color: #374151; 
         }
         .summary-line .players {
             color: #1f2937; 
-            margin-left: 0.25rem; /* Space after label */
+            margin-left: 0.25rem; 
         }
         .summary-line .players em { 
             color: #9ca3af; 
         }
-        #fullGameLineupsList { /* Removed max-height and overflow */
+        #fullGameLineupsList { 
              margin-top: 0.5rem;
         }
 
@@ -266,12 +264,15 @@
                 </div>
                 <div id="lineupContent" class="collapsible-content space-y-4 pt-4">
                     <div>
-                        <h3 class="inning-selector-header">Inning:</h3> {/* Static Heading for Inning Tabs */}
-                        <div class="flex items-center justify-between">
+                        <h3 class="inning-selector-header">Inning:</h3>
+                        <div class="flex items-center justify-between flex-wrap"> {/* Added flex-wrap for smaller screens */}
                             <div id="inningTabsContainer" class="inning-tabs-container">
                                 {/* Inning tabs will be injected here by JS */}
                             </div>
-                            <button id="fillPositionsBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 whitespace-nowrap ml-4">Fill Positions</button>
+                            <div class="flex gap-2 mt-2 md:mt-0"> {/* Container for fill buttons */}
+                                <button id="fillInningBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-3 text-sm rounded-lg transition duration-150 whitespace-nowrap">Fill Inning</button>
+                                <button id="fillGameBtn" class="bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-3 text-sm rounded-lg transition duration-150 whitespace-nowrap">Fill Game</button>
+                            </div>
                         </div>
                     </div>
                     <div id="fillWarning" class="text-sm text-red-600 font-medium hidden"></div>
@@ -305,7 +306,7 @@
                     <hr/>
                     <div>
                         <h3 class="text-xl font-semibold text-gray-700">Full Game Lineups</h3>
-                        <div id="fullGameLineupsList"> {/* Removed max-height and overflow */}
+                        <div id="fullGameLineupsList"> 
                             </div>
                     </div>
                 </div>
@@ -345,8 +346,9 @@
             RCF: { name: "Right Center Field", type: "outfield", el: null }, RF: { name: "Right Field", type: "outfield", el: null }
         };
         const ALL_FIELD_POSITIONS_ORDERED = ["P", "C", "1B", "2B", "SS", "3B", "LF", "LCF", "RCF", "RF"];
-        const INFIELD_POSITIONS = ALL_FIELD_POSITIONS_ORDERED.filter(p => POSITIONS[p].type === 'infield');
-        const OUTFIELD_POSITIONS = ALL_FIELD_POSITIONS_ORDERED.filter(p => POSITIONS[p].type === 'outfield');
+        const INFIELD_POSITIONS_ORDERED = ["P", "C", "1B", "2B", "SS", "3B"]; // For summary grouping
+        const OUTFIELD_POSITIONS_ORDERED = ["LF", "LCF", "RCF", "RF"]; // For summary grouping
+
         const MAX_INNINGS = 6; 
 
         let roster = []; 
@@ -371,7 +373,8 @@
         const editPositionError = document.getElementById('editPositionError');
         const rosterListDiv = document.getElementById('rosterList');
         const inningTabsContainer = document.getElementById('inningTabsContainer'); 
-        const fillPositionsBtn = document.getElementById('fillPositionsBtn');
+        const fillInningBtn = document.getElementById('fillInningBtn'); // New Button
+        const fillGameBtn = document.getElementById('fillGameBtn');   // New Button
         const fillWarningDiv = document.getElementById('fillWarning');
         const fieldContainer = document.getElementById('fieldContainer');
         const benchListDiv = document.getElementById('benchList');
@@ -394,7 +397,8 @@
             addPlayerToListBtn.addEventListener('click', handleAddNewPlayerToList);
             cancelEditPlayerModalBtn.addEventListener('click', closeEditPlayerModal);
             saveEditedPlayerBtn.addEventListener('click', handleSaveEditedPlayer);
-            fillPositionsBtn.addEventListener('click', handleFillPositions);
+            fillInningBtn.addEventListener('click', () => handleFillSingleInning(currentInning)); // Call for current inning
+            fillGameBtn.addEventListener('click', handleFillGame); // New handler for filling all innings
             rosterListDiv.addEventListener('click', handleRosterActions);
             benchListDiv.addEventListener('click', handleBenchPlayerClick); 
             benchListDiv.addEventListener('dragover', handleDragOver);
@@ -414,7 +418,7 @@
                 const tab = document.createElement('button');
                 tab.type = 'button';
                 tab.className = 'inning-tab';
-                tab.textContent = `${i}`; // Removed "Inn "
+                tab.textContent = `${i}`; 
                 tab.dataset.inning = i;
                 if (i === currentInning) {
                     tab.classList.add('active');
@@ -494,8 +498,8 @@
 
             const selectedPositions = new Set();
             newPositionSelectionDiv.querySelectorAll('.position-btn.active').forEach(btn => selectedPositions.add(btn.dataset.position));
-            const hasInfield = Array.from(selectedPositions).some(p => INFIELD_POSITIONS.includes(p));
-            const hasOutfield = Array.from(selectedPositions).some(p => OUTFIELD_POSITIONS.includes(p));
+            const hasInfield = Array.from(selectedPositions).some(p => INFIELD_POSITIONS_ORDERED.includes(p)); // Use ordered list
+            const hasOutfield = Array.from(selectedPositions).some(p => OUTFIELD_POSITIONS_ORDERED.includes(p)); // Use ordered list
             if (!hasInfield || !hasOutfield) { newPositionError.classList.remove('hidden'); return; }
             newPositionError.classList.add('hidden');
 
@@ -531,8 +535,8 @@
 
             const selectedPositions = new Set();
             editPositionSelectionDiv.querySelectorAll('.position-btn.active').forEach(btn => selectedPositions.add(btn.dataset.position));
-            const hasInfield = Array.from(selectedPositions).some(p => INFIELD_POSITIONS.includes(p));
-            const hasOutfield = Array.from(selectedPositions).some(p => OUTFIELD_POSITIONS.includes(p));
+            const hasInfield = Array.from(selectedPositions).some(p => INFIELD_POSITIONS_ORDERED.includes(p));
+            const hasOutfield = Array.from(selectedPositions).some(p => OUTFIELD_POSITIONS_ORDERED.includes(p));
             if (!hasInfield || !hasOutfield) { editPositionError.classList.remove('hidden'); return; }
             editPositionError.classList.add('hidden');
 
@@ -653,21 +657,27 @@
             renderAll(); saveState();
         }
         
-        function handleFillPositions() { 
-            const inning = getCurrentInningData();
-            const availableBenchPlayerIds = Array.from(inning.bench);
+        function handleFillSingleInning(inningNumToFill) {
+            const inningToProcess = inningsData.find(i => i.inning === inningNumToFill);
+            if (!inningToProcess) {
+                console.error(`Could not find inning data for inning ${inningNumToFill} to fill.`);
+                return;
+            }
+
+            const availableBenchPlayerIds = Array.from(inningToProcess.bench);
             let unfilledPositionsLog = [];
 
             ALL_FIELD_POSITIONS_ORDERED.forEach(posKey => {
-                if (!inning.assignments[posKey]) { 
+                if (!inningToProcess.assignments[posKey]) { 
                     let suitablePlayers = availableBenchPlayerIds
                         .map(id => roster.find(p => p.id === id))
-                        .filter(player => player && player.allowedPositions.has(posKey) && inning.bench.has(player.id)); 
+                        .filter(player => player && player.allowedPositions.has(posKey) && inningToProcess.bench.has(player.id)); 
 
                     if (suitablePlayers.length > 0) {
                         suitablePlayers.forEach(player => {
                             player.timesPlayedThisPos = 0;
-                            inningsData.forEach(innData => {
+                            // Count plays for this specific position across ALL innings for weighting
+                            inningsData.forEach(innData => { 
                                 if (innData.assignments[posKey] === player.id) {
                                     player.timesPlayedThisPos++;
                                 }
@@ -677,8 +687,8 @@
                         const leastPlayedSuitablePlayers = suitablePlayers.filter(p => p.timesPlayedThisPos === minTimesPlayed);
                         const randomPlayer = leastPlayedSuitablePlayers[Math.floor(Math.random() * leastPlayedSuitablePlayers.length)];
                         
-                        inning.assignments[posKey] = randomPlayer.id;
-                        inning.bench.delete(randomPlayer.id); 
+                        inningToProcess.assignments[posKey] = randomPlayer.id;
+                        inningToProcess.bench.delete(randomPlayer.id); 
                         const playerIndexInBenchIds = availableBenchPlayerIds.indexOf(randomPlayer.id);
                         if (playerIndexInBenchIds > -1) {
                             availableBenchPlayerIds.splice(playerIndexInBenchIds, 1);
@@ -689,14 +699,36 @@
                 }
             });
 
-            if (unfilledPositionsLog.length > 0) {
-                fillWarningDiv.textContent = `Could not fill: ${unfilledPositionsLog.join(', ')}. Some players may not have the required allowed positions or bench is empty.`;
-                fillWarningDiv.classList.remove('hidden');
+            if (inningNumToFill === currentInning) { // Only show warning for current inning's fill attempt
+                if (unfilledPositionsLog.length > 0) {
+                    fillWarningDiv.textContent = `Could not fill for Inning ${inningNumToFill}: ${unfilledPositionsLog.join(', ')}.`;
+                    fillWarningDiv.classList.remove('hidden');
+                } else {
+                    fillWarningDiv.classList.add('hidden');
+                }
+            }
+            return unfilledPositionsLog.length === 0; // Return true if all positions were filled for this inning
+        }
+
+        function handleFillGame() {
+            let allFilled = true;
+            let overallUnfilledLog = [];
+            for (let i = 1; i <= MAX_INNINGS; i++) {
+                const success = handleFillSingleInning(i);
+                if (!success) {
+                    allFilled = false;
+                    // Collect unfilled positions for the warning (optional, could just show generic message)
+                    // For now, the warning is handled per-inning if it's the current one.
+                }
+            }
+            if (!allFilled) {
+                 fillWarningDiv.textContent = `Could not fill all positions for all innings. Check individual innings.`;
+                 fillWarningDiv.classList.remove('hidden');
             } else {
-                fillWarningDiv.classList.add('hidden');
+                 fillWarningDiv.classList.add('hidden'); // Clear warning if all innings filled successfully
             }
             selectedPlayerId = null; 
-            renderAll(); 
+            renderAll(); // Re-render everything after filling all innings
             saveState();
         }
 
@@ -938,8 +970,8 @@
                         const count = playedPositionsCount[posKey];
                         const pill = document.createElement('span');
                         pill.className = 'pos-pill';
-                        if (INFIELD_POSITIONS.includes(posKey)) pill.classList.add('pos-pill-infield');
-                        else if (OUTFIELD_POSITIONS.includes(posKey)) pill.classList.add('pos-pill-outfield');
+                        if (INFIELD_POSITIONS_ORDERED.includes(posKey)) pill.classList.add('pos-pill-infield');
+                        else if (OUTFIELD_POSITIONS_ORDERED.includes(posKey)) pill.classList.add('pos-pill-outfield');
                         pill.textContent = `${posKey} (${count})`;
                         playerDiv.appendChild(pill);
                     });
@@ -983,24 +1015,39 @@
                 inningTitle.textContent = `Inning ${inningData.inning}`;
                 inningBlock.appendChild(inningTitle);
 
-                // All Field Positions Line
-                const fieldPositionsLine = document.createElement('div');
-                fieldPositionsLine.className = 'summary-line';
-                let fieldHtml = '';
-                ALL_FIELD_POSITIONS_ORDERED.forEach((posKey, index) => {
+                // Infield Line
+                const infieldLine = document.createElement('div');
+                infieldLine.className = 'summary-line';
+                let infieldHtml = '';
+                INFIELD_POSITIONS_ORDERED.forEach((posKey, index) => {
                     const playerId = inningData.assignments[posKey];
                     const player = playerId ? roster.find(p => p.id === playerId) : null;
-                    fieldHtml += `<strong>${posKey}:</strong><span class="players">${player ? (player.name.length > 10 ? player.name.substring(0,10) + '...' : player.name) : '<em>Empty</em>'}</span>`;
-                    if (index < ALL_FIELD_POSITIONS_ORDERED.length - 1) {
-                        fieldHtml += '<span class="mx-1">|</span> '; // Separator
+                    infieldHtml += `<strong>${posKey}:</strong><span class="players">${player ? (player.name.length > 10 ? player.name.substring(0,10) + '...' : player.name) : '<em>Empty</em>'}</span>`;
+                    if (index < INFIELD_POSITIONS_ORDERED.length - 1) {
+                        infieldHtml += '<span class="mx-1">|</span> '; 
                     }
                 });
-                fieldPositionsLine.innerHTML = fieldHtml;
-                inningBlock.appendChild(fieldPositionsLine);
+                infieldLine.innerHTML = infieldHtml;
+                inningBlock.appendChild(infieldLine);
+
+                // Outfield Line
+                const outfieldLine = document.createElement('div');
+                outfieldLine.className = 'summary-line';
+                let outfieldHtml = '';
+                OUTFIELD_POSITIONS_ORDERED.forEach((posKey, index) => {
+                    const playerId = inningData.assignments[posKey];
+                    const player = playerId ? roster.find(p => p.id === playerId) : null;
+                    outfieldHtml += `<strong>${posKey}:</strong><span class="players">${player ? (player.name.length > 10 ? player.name.substring(0,10) + '...' : player.name) : '<em>Empty</em>'}</span>`;
+                     if (index < OUTFIELD_POSITIONS_ORDERED.length - 1) {
+                        outfieldHtml += '<span class="mx-1">|</span> '; 
+                    }
+                });
+                outfieldLine.innerHTML = outfieldHtml;
+                inningBlock.appendChild(outfieldLine);
                 
                 // Bench Line
                 const benchLine = document.createElement('div');
-                benchLine.className = 'summary-line mt-1'; // Add a little top margin
+                benchLine.className = 'summary-line mt-1'; 
                 let benchHtml = '<strong>Bench:</strong> <span class="players">';
                 const benchPlayerNames = Array.from(inningData.bench)
                                            .map(pid => roster.find(p => p.id === pid)?.name)
