@@ -209,8 +209,8 @@
                 <select id="numSimulationsSelect">
                     <option value="10000">10,000</option>
                     <option value="50000">50,000</option>
-                    <option value="100000" selected>100,000 (Default)</option>
-                    <option value="250000">250,000</option>
+                    <option value="100000">100,000</option>
+                    <option value="250000" selected>250,000 (Default)</option>
                     <option value="500000">500,000 (Slower)</option>
                 </select>
             </div>
@@ -230,15 +230,11 @@
             <div>
                 <label for="optimizationSimsSelect" class="block mb-1">Simulations per Lineup:</label>
                 <select id="optimizationSimsSelect">
-                    <option value="100">100 (Fastest)</option>
-                    <option value="500">500</option>
-                    <option value="1000">1,000</option> 
-                    <option value="2000">2,000</option> 
-                    <option value="5000">5,000</option>
-                    <option value="10000" selected>10,000 (Recommended)</option> 
+                    <option value="10000">10,000 (Fastest/Inaccurate)</option> 
                     <option value="25000">25,000</option>
-                    <option value="50000">50,000 (Slow)</option>
-                    <option value="100000">100,000 (Very Slow)</option>
+                    <option value="50000">50,000 (Recommended)</option>
+                    <option value="100000">100,000</option>
+                    <option value="100000">250,000 (Very Slow/Best Numbers)</option>
                 </select>
             </div>
             <button id="optimizeLineupBtn" class="mt-4">Optimize Lineup</button>
