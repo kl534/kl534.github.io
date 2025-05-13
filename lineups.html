@@ -114,6 +114,13 @@
             font-weight: 500;
             color: #1d4ed8; /* Darker blue for text */
         }
+        /* Style for the chart container */
+        .chart-container {
+            position: relative;
+            height: 350px; /* Adjust height as needed */
+            width: 100%;   /* Take full width of its parent */
+            margin-bottom: 1rem; /* Add some space below the chart */
+        }
     </style>
 </head>
 <body>
@@ -145,7 +152,8 @@
             <div id="loadingIndicator">Simulating... Please wait. This might take a moment.</div>
             <div id="simulationResults" class="mt-4 hidden">
                 <h3 class="text-xl font-semibold mb-2">Run Distribution Histogram</h3>
-                <canvas id="runsHistogramChart" width="400" height="200"></canvas>
+                <div class="chart-container">
+                    <canvas id="runsHistogramChart"></canvas> </div>
                 <h3 class="text-xl font-semibold mt-6 mb-2">Run Percentages</h3>
                 <table id="runPercentagesTable" class="stats-table">
                     <thead><tr><th>Runs Scored</th><th>Frequency</th><th>Percentage</th></tr></thead>
@@ -162,8 +170,7 @@
                     <option value="100">100 (Fastest)</option>
                     <option value="500">500</option>
                     <option value="1000" selected>1000 (Recommended)</option>
-                    <option value_2000>2000</option>
-                    <option value="5000">5000 (Most Accurate)</option>
+                    <option value="2000">2000</option> <option value="5000">5000 (Most Accurate)</option>
                 </select>
             </div>
             <button id="optimizeLineupBtn" class="mt-4">Optimize Lineup</button>
@@ -205,6 +212,7 @@
         const addPlayerBtn = document.getElementById('addPlayerBtn');
         const runSimulationBtn = document.getElementById('runSimulationBtn');
         const simulationResultsDiv = document.getElementById('simulationResults');
+        // Get the canvas context, not the canvas element itself for Chart.js
         const runsHistogramChartCtx = document.getElementById('runsHistogramChart').getContext('2d');
         const runPercentagesTableBody = document.getElementById('runPercentagesTable').querySelector('tbody');
         const optimizationSimsSelect = document.getElementById('optimizationSimsSelect');
@@ -275,11 +283,24 @@
             const rows = rosterTableBody.rows;
             let allValid = true;
             for (let i = 0; i < rows.length; i++) {
-                const name = rows[i].querySelector('.player-name').value.trim();
-                const ab = parseInt(rows[i].querySelector('.player-ab').value);
-                const h = parseInt(rows[i].querySelector('.player-h').value);
-                const tb = parseInt(rows[i].querySelector('.player-tb').value);
-                const so = parseInt(rows[i].querySelector('.player-so').value);
+                const nameInput = rows[i].querySelector('.player-name');
+                const abInput = rows[i].querySelector('.player-ab');
+                const hInput = rows[i].querySelector('.player-h');
+                const tbInput = rows[i].querySelector('.player-tb');
+                const soInput = rows[i].querySelector('.player-so');
+
+                // Check if any input field is null (e.g., if a row was somehow malformed)
+                if (!nameInput || !abInput || !hInput || !tbInput || !soInput) {
+                    console.warn("Skipping malformed row in roster table.");
+                    allValid = false; // Consider this an invalid state for the whole roster collection
+                    continue;
+                }
+
+                const name = nameInput.value.trim();
+                const ab = parseInt(abInput.value);
+                const h = parseInt(hInput.value);
+                const tb = parseInt(tbInput.value);
+                const so = parseInt(soInput.value);
 
                 if (name && !isNaN(ab) && !isNaN(h) && !isNaN(tb) && !isNaN(so)) {
                      if (ab < 0 || h < 0 || tb < 0 || so < 0) {
@@ -298,20 +319,25 @@
                         showMessage(`Player ${name || 'Unnamed'}: Strikeouts (SO) cannot exceed At-Bats (AB).`);
                         allValid = false; continue;
                     }
-                    if ( (h + so) > ab && (ab - h - so < 0) ) { // (AB - H - SO) is used for P_OtherOut
-                        // This is a more complex validation, if SO makes (AB-H-SO) negative
-                        // It implies non-hit outs are negative. Handled in prob calculation.
-                        // For now, ensure SO <= AB - H
-                        if (so > (ab - h)) {
-                             showMessage(`Player ${name || 'Unnamed'}: Strikeouts (SO) seem too high relative to Hits (H) and At-Bats (AB). SO should be <= AB - H.`);
+                    if ( (h + so) > ab ) { 
+                        if (so > (ab - h)) { // This is the more direct check
+                             showMessage(`Player ${name || 'Unnamed'}: Strikeouts (SO) plus Hits (H) cannot exceed At-Bats (AB). Please ensure SO <= AB - H.`);
                              allValid = false; continue;
                         }
                     }
                     globalRoster.push({ name, ab, h, tb, so });
-                } else if (name || !isNaN(ab) || !isNaN(h) || !isNaN(tb) || !isNaN(so)) {
-                    // If any field is filled but not all, it's an incomplete row.
-                    // For now, we just skip it in globalRoster unless all numeric fields are valid.
-                    // A more robust validation could highlight incomplete rows.
+                } else if (name || abInput.value || hInput.value || tbInput.value || soInput.value) {
+                    // If any field has a value, but not all numeric fields are valid numbers,
+                    // or if the name is present but numbers are missing/invalid.
+                    // This indicates an incomplete or invalidly filled row.
+                    if (name && (isNaN(ab) || isNaN(h) || isNaN(tb) || isNaN(so))) {
+                         showMessage(`Player ${name}: Please ensure all stat fields (AB, H, TB, SO) are filled with valid numbers.`);
+                         allValid = false;
+                    } else if (!name && (abInput.value || hInput.value || tbInput.value || soInput.value)) {
+                         showMessage(`An unnamed player has stats entered. Please provide a name or clear the stats for that row.`);
+                         allValid = false;
+                    }
+                    // We don't add partially filled rows to globalRoster
                 }
             }
             return allValid;
@@ -323,21 +349,35 @@
         }
 
         function saveRosterToLocalStorage() {
-            // No need to call collectRosterData here if inputs directly update globalRoster
-            // or if collectRosterData is called right before saving.
-            // For simplicity, let's ensure globalRoster is up-to-date before saving.
-            // This is handled by input event listeners calling updateAndSaveRoster.
             localStorage.setItem('littleLeagueRoster', JSON.stringify(globalRoster));
         }
 
         function loadRosterFromLocalStorage() {
             const savedRoster = localStorage.getItem('littleLeagueRoster');
             if (savedRoster) {
-                globalRoster = JSON.parse(savedRoster);
+                try {
+                    const parsedRoster = JSON.parse(savedRoster);
+                    if (Array.isArray(parsedRoster)) {
+                        globalRoster = parsedRoster;
+                         // Validate loaded roster data structure here if necessary
+                        globalRoster = globalRoster.filter(p => 
+                            typeof p.name === 'string' &&
+                            typeof p.ab === 'number' &&
+                            typeof p.h === 'number' &&
+                            typeof p.tb === 'number' &&
+                            typeof p.so === 'number'
+                        );
+                    } else {
+                        globalRoster = []; // Reset if format is incorrect
+                    }
+                } catch (e) {
+                    console.error("Error parsing roster from local storage:", e);
+                    globalRoster = []; // Reset on error
+                }
                 renderRosterFromGlobal();
-            } else {
-                // Add one empty row if no saved data
-                addPlayerRow();
+            }
+            if (globalRoster.length === 0) { // If no valid roster loaded or was empty
+                addPlayerRow(); // Add one empty row
             }
         }
 
@@ -348,28 +388,51 @@
                 try {
                     const decodedRoster = JSON.parse(atob(rosterData));
                     if (Array.isArray(decodedRoster)) {
-                        globalRoster = decodedRoster;
-                        renderRosterFromGlobal();
-                        saveRosterToLocalStorage(); // Save URL roster to local storage
-                        showMessage("Roster loaded from URL!");
+                         // Basic validation of URL data
+                        const validatedRoster = decodedRoster.filter(p => 
+                            typeof p.name === 'string' &&
+                            typeof p.ab === 'number' && p.ab >= 0 &&
+                            typeof p.h === 'number' && p.h >= 0 && p.h <= p.ab &&
+                            typeof p.tb === 'number' && p.tb >= p.h &&
+                            typeof p.so === 'number' && p.so >= 0 && (p.so + p.h) <= p.ab
+                        );
+
+                        if (validatedRoster.length !== decodedRoster.length) {
+                            showMessage("Some player data from the URL was invalid and has been omitted.");
+                        }
+
+                        if (validatedRoster.length > 0) {
+                            globalRoster = validatedRoster;
+                            renderRosterFromGlobal();
+                            saveRosterToLocalStorage(); // Save valid URL roster to local storage
+                            showMessage("Roster loaded from URL!");
+                             // Clean the URL
+                            window.history.replaceState({}, document.title, window.location.pathname);
+                            return; // Exit after successfully loading from URL
+                        } else if (decodedRoster.length > 0) {
+                             showMessage("Roster data in URL was invalid. Loading from local storage instead.");
+                        }
+                    } else {
+                         showMessage("Invalid roster format in URL. Loading from local storage instead.");
                     }
                 } catch (e) {
                     console.error("Error parsing roster data from URL:", e);
-                    showMessage("Could not load roster from URL: Invalid data format.");
-                    loadRosterFromLocalStorage(); // Fallback to local storage
+                    showMessage("Could not load roster from URL: Corrupted data. Loading from local storage.");
                 }
-            } else {
-                loadRosterFromLocalStorage();
+                 // Clean the URL if attempted load failed or was partial
+                window.history.replaceState({}, document.title, window.location.pathname);
             }
+            // Fallback to local storage if no URL param or if URL loading failed
+            loadRosterFromLocalStorage();
         }
         
         generateShareUrlBtn.addEventListener('click', () => {
-            if (!collectRosterData() || globalRoster.length === 0) {
-                 showMessage("Please enter valid player data before generating a URL.");
+            if (!collectRosterData() || globalRoster.length === 0) { // collectRosterData now returns validity
+                 showMessage("Please enter complete and valid player data before generating a URL.");
                  return;
             }
             const jsonRoster = JSON.stringify(globalRoster);
-            const base64Roster = btoa(jsonRoster);
+            const base64Roster = btoa(jsonRoster); // Base64 encode
             const url = `${window.location.origin}${window.location.pathname}?roster=${base64Roster}`;
             shareUrlInput.value = url;
         });
@@ -377,8 +440,18 @@
         copyUrlBtn.addEventListener('click', () => {
             if (shareUrlInput.value) {
                 shareUrlInput.select();
-                document.execCommand('copy');
-                showMessage("URL copied to clipboard!");
+                try {
+                    document.execCommand('copy'); // Deprecated but widely supported
+                    showMessage("URL copied to clipboard!");
+                } catch (err) {
+                    // Fallback for browsers that don't support execCommand or if it fails
+                    navigator.clipboard.writeText(shareUrlInput.value).then(() => {
+                        showMessage("URL copied to clipboard!");
+                    }).catch(e => {
+                        showMessage("Failed to copy URL. Please copy it manually.");
+                        console.error("Copy failed: ", e);
+                    });
+                }
             } else {
                 showMessage("Generate a URL first.");
             }
@@ -386,41 +459,90 @@
 
         // --- Probability Calculation ---
         function calculatePlayerProbs(player) {
-            if (!player || player.ab === 0) {
-                return { ...player, P_SO: 0, P_Out_Other: 1, P_1B: 0, P_2B: 0, P_HR: 0, C_SO: 0, C_Out_Other: 1, C_1B: 1, C_2B: 1, C_HR: 1 };
+            if (!player || typeof player.ab !== 'number' || player.ab === 0) {
+                // Return a default structure for a player who never bats or has invalid AB
+                return { ...player, name: player.name || "Unknown Player", P_SO: 0, P_Out_Other: 1, P_1B: 0, P_2B: 0, P_HR: 0, C_SO: 0, C_Out_Other: 1, C_1B: 1, C_2B: 1, C_HR: 1 };
             }
 
             let { ab, h, tb, so } = player;
-            ab = Number(ab); h = Number(h); tb = Number(tb); so = Number(so);
+            // Ensure they are numbers, default to 0 if somehow not (should be caught by collectRosterData)
+            ab = Number(ab) || 0; 
+            h = Number(h) || 0;
+            tb = Number(tb) || 0;
+            so = Number(so) || 0;
 
+            // Basic validation, though collectRosterData should prevent most issues
+            if (ab === 0) return { ...player, P_SO: 0, P_Out_Other: 1, P_1B: 0, P_2B: 0, P_HR: 0, C_SO: 0, C_Out_Other: 1, C_1B: 1, C_2B: 1, C_HR: 1 };
+            h = Math.min(h, ab);
+            so = Math.min(so, ab - h); // SO cannot be more than ABs that weren't hits
+            tb = Math.max(tb, h); // TB must be at least H
 
             const avg = h / ab;
             const slg = tb / ab;
-            const iso = Math.max(0, slg - avg);
+            let iso = slg - avg;
+            if (iso < 0) iso = 0; // ISO cannot be negative
 
             let p_hr = 0, p_2b = 0, p_1b = 0;
 
-            if (avg > 0) {
-                const alpha = 2.0; // Assumed ratio of 2B probability to HR probability
-                p_hr = iso / (alpha + 3.0);
-                p_2b = alpha * p_hr;
+            if (avg > 0) { // Only calculate hit types if there are hits
+                // Simplified model for XBH distribution from ISO
+                // Assume HRs are roughly 1/3 of ISO power, 2B are 2/3 (very rough)
+                // More advanced: use league averages or regression. For Little League, this is a guess.
+                // P(HR) = ISO / 4 (since HR adds 3 extra bases over a single)
+                // P(2B) = ISO / 2 (since 2B adds 1 extra base over a single) - this is too simple.
 
-                if (p_hr + p_2b > avg) { // Cap XBH prob sum at AVG
+                // Let's use a slightly more common approach:
+                // Assume fixed ratios of XBH for simplicity in little league context
+                // For example, of the "extra base hits", 20% are HR, 80% are 2B (no triples)
+                // This is a placeholder logic and can be much improved.
+                const xbh_rate = iso; // Rate of "extra bases per AB"
+                
+                // A common simple model:
+                // P(HR) = some_factor_HR * ISO
+                // P(2B) = some_factor_2B * ISO
+                // P(1B) = AVG - P(HR) - P(2B)
+                // For this, let's try to derive from TB = 1*P(1B) + 2*P(2B) + 4*P(HR)
+                // and H = P(1B) + P(2B) + P(HR)
+                // This becomes complex to solve directly without more assumptions.
+
+                // Simpler: allocate ISO to HR and 2B.
+                // Assume a ratio for how ISO splits into HRs and 2Bs.
+                // e.g., for every HR, there are 'alpha' doubles.
+                // ISO = P(1B)*0 + P(2B)*1 + P(3B)*2 + P(HR)*3  (extra bases over single)
+                // AVG = P(1B) + P(2B) + P(3B) + P(HR)
+                // SLG = P(1B)*1 + P(2B)*2 + P(3B)*3 + P(HR)*4
+                // SLG - AVG = P(2B)*1 + P(3B)*2 + P(HR)*3  (This is ISO)
+                // Let's omit triples for this league. ISO = P(2B) + 3*P(HR)
+
+                const alpha_hr_vs_2b_bases = 3.0; // HR gives ~3 more "extra bases" than a 2B, relative to a single.
+                                                // Or, a HR is "worth" 3 2Bs in terms of ISO contribution if P(2B) was main driver.
+                                                // This is not standard, just a way to split ISO.
+                // A common heuristic:
+                p_hr = iso / (alpha_hr_vs_2b_bases + 1.0); // Crude split of ISO, assuming HRs are less frequent than 2Bs for the same ISO points
+                p_2b = iso - 3 * p_hr; // Remaining ISO points go to doubles (1 ISO point per double)
+                
+                if (p_2b < 0) { // If calculated p_hr was too high for the ISO
+                    p_hr = iso / 3.0; // All ISO from HRs
+                    p_2b = 0;
+                }
+
+                // Cap XBH probabilities by AVG
+                if (p_hr + p_2b > avg) {
                     const total_xbh_prob_raw = p_hr + p_2b;
                     if (total_xbh_prob_raw > 0) {
-                        p_hr = (p_hr / total_xbh_prob_raw) * avg;
-                        p_2b = (p_2b / total_xbh_prob_raw) * avg;
-                    } else { // Should not happen if avg > 0 and iso was calculated
+                        p_hr = (p_hr / total_xbh_prob_raw) * avg * 0.8; // Give some room for singles
+                        p_2b = (p_2b / total_xbh_prob_raw) * avg * 0.8;
+                    } else {
                         p_hr = 0; p_2b = 0;
                     }
                 }
                 
                 p_1b = avg - p_hr - p_2b;
 
-                // Ensure non-negativity after potential caps
+                // Ensure non-negativity and that sum is AVG
                 p_hr = Math.max(0, p_hr);
                 p_2b = Math.max(0, p_2b);
-                p_1b = Math.max(0, avg - p_hr - p_2b); // Recalculate p_1b based on potentially adjusted p_hr, p_2b
+                p_1b = Math.max(0, avg - p_hr - p_2b);
 
                 // Normalize hit probabilities to sum exactly to avg
                 const current_sum_hit_probs = p_1b + p_2b + p_hr;
@@ -430,7 +552,7 @@
                     p_2b *= scale;
                     p_hr *= scale;
                 } else if (avg > 0) { // If all calculations led to zero hit type probs but avg is positive
-                    p_1b = avg;
+                    p_1b = avg; // All hits are singles
                     p_2b = 0;
                     p_hr = 0;
                 }
@@ -439,46 +561,61 @@
             let p_so = so / ab;
             let p_other_out = (ab - h - so) / ab;
 
-            if (p_other_out < 0) { // If SO is too high (e.g. SO > AB - H)
-                p_other_out = 0;
-                p_so = (ab - h) / ab; // All non-hit outcomes are SOs
+            // Ensure non-negative probabilities for outs
+            p_so = Math.max(0, p_so);
+            p_other_out = Math.max(0, p_other_out);
+            if (p_so + p_other_out + avg > 1.0000001) { // If sum exceeds 1 due to previous calcs/rounding
+                 // Prioritize AVG and P_SO, adjust P_Other_Out
+                 p_other_out = 1.0 - avg - p_so;
+                 p_other_out = Math.max(0, p_other_out); // Ensure it's not negative
+                 // If still > 1, it means P_SO + AVG > 1, which implies SO > AB-H.
+                 // This should have been caught by collectRosterData or the initial SO clamp.
+                 // If it still occurs, clamp P_SO.
+                 if (avg + p_so > 1.0) {
+                     p_so = 1.0 - avg;
+                     p_so = Math.max(0, p_so);
+                     p_other_out = 0;
+                 }
             }
-            p_so = Math.max(0, p_so); // Ensure non-negative
 
-            // Ensure all probabilities sum to 1.0 by adjusting p_other_out (most flexible category)
-            const sum_probs_before_final_adjust = p_1b + p_2b + p_hr + p_so + p_other_out;
-            if (Math.abs(sum_probs_before_final_adjust - 1.0) > 1e-9) { // If not close to 1
-                 p_other_out = 1.0 - (p_1b + p_2b + p_hr + p_so);
-                 p_other_out = Math.max(0, p_other_out); // ensure it's not negative from rounding
+
+            // Final normalization to ensure all probabilities sum to 1.0
+            let all_probs = [p_1b, p_2b, p_hr, p_so, p_other_out];
+            let sum_all_probs = all_probs.reduce((s, p) => s + p, 0);
+
+            if (Math.abs(sum_all_probs - 1.0) > 1e-9) { // If not close to 1
+                if (sum_all_probs > 0) {
+                    const scaleFactor = 1.0 / sum_all_probs;
+                    p_1b *= scaleFactor;
+                    p_2b *= scaleFactor;
+                    p_hr *= scaleFactor;
+                    p_so *= scaleFactor;
+                    p_other_out *= scaleFactor;
+                } else if (ab > 0) { // All probabilities are zero, but there were ABs
+                    p_other_out = 1.0; // Default to an out
+                } else { // ab === 0, already handled, but as a safeguard
+                    p_other_out = 1.0;
+                }
             }
-            // Final check and force sum to 1 for cumulative distribution
-            let final_p_so = p_so;
-            let final_p_other_out = p_other_out;
-            let final_p_1b = p_1b;
-            let final_p_2b = p_2b;
-            let final_p_hr = p_hr;
             
-            const totalForCumulative = final_p_so + final_p_other_out + final_p_1b + final_p_2b + final_p_hr;
-            if (Math.abs(totalForCumulative - 1.0) > 1e-9 && totalForCumulative > 0) {
-                const scaleFactor = 1.0 / totalForCumulative;
-                final_p_so *= scaleFactor;
-                final_p_other_out *= scaleFactor;
-                final_p_1b *= scaleFactor;
-                final_p_2b *= scaleFactor;
-                final_p_hr *= scaleFactor;
-            } else if (totalForCumulative === 0 && ab > 0) { // Edge case: player always gets out, not via hit/SO
-                final_p_other_out = 1.0;
+            // Recalculate sum for cumulative probabilities after any normalization
+            sum_all_probs = p_1b + p_2b + p_hr + p_so + p_other_out;
+            // Ensure the sum is exactly 1 for cumulative distribution, typically by adjusting the largest component (often p_other_out or p_1b)
+            // For simplicity, if there's a tiny remainder, add to p_other_out or subtract if sum > 1
+            if (sum_all_probs !== 1.0) {
+                p_other_out += (1.0 - sum_all_probs);
             }
 
 
             return {
-                ...player,
-                P_SO: final_p_so, P_Out_Other: final_p_other_out, P_1B: final_p_1b, P_2B: final_p_2b, P_HR: final_p_hr,
-                C_SO: final_p_so,
-                C_Out_Other: final_p_so + final_p_other_out,
-                C_1B: final_p_so + final_p_other_out + final_p_1b,
-                C_2B: final_p_so + final_p_other_out + final_p_1b + final_p_2b,
-                C_HR: 1.0 // final_p_so + final_p_other_out + final_p_1b + final_p_2b + final_p_hr (should be 1)
+                ...player, // Original player data
+                P_SO: p_so, P_Out_Other: p_other_out, P_1B: p_1b, P_2B: p_2b, P_HR: p_hr,
+                // Cumulative probabilities for outcome generation
+                C_SO: p_so,
+                C_Out_Other: p_so + p_other_out,
+                C_1B: p_so + p_other_out + p_1b,
+                C_2B: p_so + p_other_out + p_1b + p_2b,
+                C_HR: 1.0 // Sum of all (should be 1.0 after normalization)
             };
         }
 
@@ -502,71 +639,76 @@
             for (let inning = 0; inning < NUM_INNINGS; inning++) {
                 let outs = 0;
                 let inningRuns = 0;
-                let bases = [null, null, null]; // 0:1st, 1:2nd, 2:3rd. Value is the batter object (or 1 for simplicity)
+                let bases = [0, 0, 0]; // 0:1st, 1:2nd, 2:3rd. Value 1 if occupied, 0 if not.
 
                 while (outs < 3 && inningRuns < MAX_RUNS_PER_INNING) {
-                    const batter = lineupWithProbs[currentBatterIdx];
-                    const outcome = getPAOutcome(batter);
+                    if (lineupWithProbs.length === 0) break; // Should not happen if validated before
+                    const batterProbs = lineupWithProbs[currentBatterIdx % lineupWithProbs.length];
+                    const outcome = getPAOutcome(batterProbs);
                     let runsThisPA = 0;
 
                     if (outcome === "SO" || outcome === "OutOther") {
                         outs++;
                     } else { // Hit
-                        const batterId = 1; // Simplified representation of a runner
                         if (outcome === "HR") {
                             runsThisPA++; // Batter scores
-                            bases.forEach(runner => { if (runner) runsThisPA++; });
-                            bases = [null, null, null];
+                            if (bases[2]) { runsThisPA++; bases[2] = 0; } // Runner on 3rd scores
+                            if (bases[1]) { runsThisPA++; bases[1] = 0; } // Runner on 2nd scores
+                            if (bases[0]) { runsThisPA++; bases[0] = 0; } // Runner on 1st scores
                         } else if (outcome === "2B") {
-                            // Runner on 3rd scores
-                            if (bases[2]) { runsThisPA++; bases[2] = null; }
-                            // Runner on 2nd scores
-                            if (bases[1]) { runsThisPA++; bases[1] = null; }
-                            // Runner on 1st to 3rd
-                            if (bases[0]) { bases[2] = bases[0]; bases[0] = null; }
-                            // Batter to 2nd
-                            bases[1] = batterId;
+                            // Runners advance 2 bases
+                            if (bases[2]) { runsThisPA++; bases[2] = 0; } // Runner on 3rd scores
+                            if (bases[1]) { runsThisPA++; bases[1] = 0; } // Runner on 2nd scores
+                            if (bases[0]) { bases[2] = 1; bases[0] = 0; } // Runner on 1st to 3rd
+                            bases[1] = 1; // Batter to 2nd
                         } else if (outcome === "1B") {
-                            // Runner on 3rd scores
-                            if (bases[2]) { runsThisPA++; bases[2] = null; }
-                            // Runner on 2nd to 3rd
-                            if (bases[1]) { bases[2] = bases[1]; bases[1] = null; }
-                            // Runner on 1st to 2nd
-                            if (bases[0]) { bases[1] = bases[0]; bases[0] = null; }
-                            // Batter to 1st
-                            bases[0] = batterId;
+                            // Runners advance 1 base (with force)
+                            if (bases[2] && bases[1] && bases[0]) { // Bases loaded
+                                runsThisPA++; // Runner from 3rd scores
+                                // bases[2] remains 1 (runner from 2nd)
+                                // bases[1] remains 1 (runner from 1st)
+                                // bases[0] remains 1 (batter)
+                            } else {
+                                if (bases[2]) { runsThisPA++; bases[2] = 0; } // Runner on 3rd scores
+                                if (bases[1]) { bases[2] = 1; bases[1] = 0; } // Runner on 2nd to 3rd
+                                if (bases[0]) { bases[1] = 1; bases[0] = 0; } // Runner on 1st to 2nd
+                                bases[0] = 1; // Batter to 1st
+                            }
                         }
                     }
                     
                     inningRuns += runsThisPA;
                     if (inningRuns >= MAX_RUNS_PER_INNING) {
                         inningRuns = MAX_RUNS_PER_INNING; // Cap at 5
-                        // Inning ends immediately
                         totalGameRuns += inningRuns;
-                        currentBatterIdx = (currentBatterIdx + 1) % lineupWithProbs.length;
-                        break; 
+                        currentBatterIdx = (currentBatterIdx + 1); // No modulo here, do it before next PA
+                        break; // Inning ends immediately due to run cap
                     }
-                    currentBatterIdx = (currentBatterIdx + 1) % lineupWithProbs.length;
-                }
+                    currentBatterIdx = (currentBatterIdx + 1); // No modulo here, do it before next PA
+                } // End of PAs for the inning (outs or run cap)
+                
                 if (inningRuns < MAX_RUNS_PER_INNING) { // if inning didn't end due to run limit
                      totalGameRuns += inningRuns;
                 }
-            }
+            } // End of innings
             return totalGameRuns;
         }
         
         async function runManySimulations(lineup, numSims) {
+            // This function is async only to match the pattern if we later add true async behavior (e.g., workers)
+            // Currently, it's a blocking loop.
             return new Promise(resolve => {
-                // For very large numSims, this could still block.
-                // A more advanced version might use Web Workers or chunking with setTimeout.
-                // For now, direct loop for simplicity, assuming numSims for optimization is manageable.
                 let totalRunsAcrossSims = 0;
                 const processedLineup = lineup.map(p => calculatePlayerProbs(p));
-                if (processedLineup.some(p => !p)) { // Check for invalid player data
-                    console.error("Invalid player data in lineup for simulation");
-                    resolve(0); // Or handle error appropriately
+                
+                // Check if any player in the processed lineup is invalid (e.g. calculatePlayerProbs returned undefined or a basic object)
+                if (processedLineup.some(p => !p || typeof p.P_SO === 'undefined')) {
+                    console.error("Invalid player data found in lineup during simulation batch:", processedLineup.filter(p => !p || typeof p.P_SO === 'undefined'));
+                    showMessage("Error: Invalid player data detected. Cannot run simulations.");
+                    resolve(0); // Resolve with 0 or an error indicator
                     return;
                 }
+
 
                 for (let i = 0; i < numSims; i++) {
                     totalRunsAcrossSims += simulateGame(processedLineup);
@@ -578,84 +720,116 @@
 
         runSimulationBtn.addEventListener('click', async () => {
             if (!collectRosterData() || globalRoster.length === 0) {
-                showMessage("Please add players to the roster with valid stats first.");
+                showMessage("Please add players to the roster with complete and valid stats first.");
                 return;
             }
             
             loadingIndicator.style.display = 'block';
             simulationResultsDiv.classList.add('hidden'); // Hide old results
             runSimulationBtn.disabled = true;
+            optimizeLineupBtn.disabled = true; // Disable optimize button too
 
-            // Use setTimeout to allow UI to update before heavy computation
+            // Use setTimeout to allow UI to update (show loading) before heavy computation
             await new Promise(resolve => setTimeout(resolve, 50));
 
 
             const processedRoster = globalRoster.map(p => calculatePlayerProbs(p));
-            if (processedRoster.some(p => !p || p.ab === undefined)) {
-                 showMessage("Error processing player data. Please check inputs.");
+            if (processedRoster.some(p => !p || typeof p.P_SO === 'undefined')) { // Check for valid probability objects
+                 showMessage("Error processing player data. Please check inputs for all players.");
                  loadingIndicator.style.display = 'none';
                  runSimulationBtn.disabled = false;
+                 optimizeLineupBtn.disabled = false;
                  return;
             }
 
 
             const numSimulations = 100000;
-            const runCounts = {};
-            const maxPossibleRuns = NUM_INNINGS * MAX_RUNS_PER_INNING; // e.g., 6 * 5 = 30
+            const runCounts = {}; // Using an object as a frequency map
+            const maxPossibleRuns = NUM_INNINGS * MAX_RUNS_PER_INNING; 
 
-            for (let i = 0; i < numSimulations; i++) {
-                const runs = simulateGame(processedRoster);
-                runCounts[runs] = (runCounts[runs] || 0) + 1;
-            }
+            // Batch simulations to prevent freezing for too long, and update UI periodically
+            const batchSize = 5000;
+            let simsDone = 0;
 
-            // Prepare data for chart and table
-            const labels = [];
-            const data = [];
-            runPercentagesTableBody.innerHTML = ''; // Clear previous results
+            function simulateBatch() {
+                for (let i = 0; i < batchSize && simsDone < numSimulations; i++) {
+                    const runs = simulateGame(processedRoster);
+                    runCounts[runs] = (runCounts[runs] || 0) + 1;
+                    simsDone++;
+                }
 
-            for (let i = 0; i <= maxPossibleRuns; i++) {
-                const count = runCounts[i] || 0;
-                if (count > 0 || i <= 15) { // Show up to 15 runs even if zero, or any with counts
-                    labels.push(i.toString());
-                    data.push(count);
-                    const percentage = ((count / numSimulations) * 100).toFixed(2);
-                    const row = runPercentagesTableBody.insertRow();
-                    row.innerHTML = `<td>${i}</td><td>${count}</td><td>${percentage}%</td>`;
+                if (simsDone < numSimulations) {
+                    loadingIndicator.textContent = `Simulating... ${((simsDone / numSimulations) * 100).toFixed(0)}% complete.`;
+                    setTimeout(simulateBatch, 0); // Yield to event loop
+                } else {
+                    // All simulations complete
+                    loadingIndicator.textContent = 'Simulating... Please wait. This might take a moment.'; // Reset text
+                    loadingIndicator.style.display = 'none';
+
+                    // Prepare data for chart and table
+                    const labels = [];
+                    const data = [];
+                    runPercentagesTableBody.innerHTML = ''; // Clear previous results
+
+                    // Determine a reasonable max for the x-axis of the chart
+                    let practicalMaxRuns = 0;
+                    for (const runs in runCounts) {
+                        if (runCounts[runs] > 0) {
+                            practicalMaxRuns = Math.max(practicalMaxRuns, parseInt(runs));
+                        }
+                    }
+                    // Ensure we show at least up to a certain number of runs (e.g., 15 or 20) or the max observed.
+                    const displayMaxRuns = Math.max(15, practicalMaxRuns);
+
+
+                    for (let i = 0; i <= displayMaxRuns; i++) {
+                        const count = runCounts[i] || 0;
+                        labels.push(i.toString());
+                        data.push(count);
+                        if (count > 0 || i <= displayMaxRuns) { // Show if count > 0 or within typical range
+                             const percentage = ((count / numSimulations) * 100).toFixed(2);
+                             const row = runPercentagesTableBody.insertRow();
+                             row.innerHTML = `<td>${i}</td><td>${count}</td><td>${percentage}%</td>`;
+                        }
+                    }
+                    
+                    if (runsChart) {
+                        runsChart.destroy();
+                    }
+                    runsChart = new Chart(runsHistogramChartCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Frequency of Runs Scored',
+                                data: data,
+                                backgroundColor: 'rgba(59, 130, 246, 0.7)', 
+                                borderColor: 'rgba(59, 130, 246, 1)',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            scales: { 
+                                y: { beginAtZero: true, title: { display: true, text: 'Number of Games' } },
+                                x: { title: { display: true, text: 'Runs Scored in a Game' } } 
+                            },
+                            responsive: true,
+                            maintainAspectRatio: false // Crucial for fitting into the styled container
+                        }
+                    });
+
+                    simulationResultsDiv.classList.remove('hidden');
+                    runSimulationBtn.disabled = false;
+                    optimizeLineupBtn.disabled = false;
                 }
             }
-            
-            if (runsChart) {
-                runsChart.destroy();
-            }
-            runsChart = new Chart(runsHistogramChartCtx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Frequency of Runs Scored',
-                        data: data,
-                        backgroundColor: 'rgba(59, 130, 246, 0.7)', // Blue
-                        borderColor: 'rgba(59, 130, 246, 1)',
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    scales: { y: { beginAtZero: true, title: { display: true, text: 'Number of Games' } },
-                              x: { title: { display: true, text: 'Runs Scored in a Game' } } },
-                    responsive: true,
-                    maintainAspectRatio: false 
-                }
-            });
-
-            simulationResultsDiv.classList.remove('hidden');
-            loadingIndicator.style.display = 'none';
-            runSimulationBtn.disabled = false;
+            simulateBatch(); // Start the first batch
         });
 
         // --- Lineup Optimization ---
-        function getAllPermutations(arr) { // Generates permutations of the array itself
+        function getAllPermutations(arr) { 
             if (arr.length === 0) return [[]];
-            if (arr.length === 1) return [arr];
+            if (arr.length === 1) return [[...arr]]; // Return copy
 
             const result = [];
             for (let i = 0; i < arr.length; i++) {
@@ -663,7 +837,7 @@
                 const remaining = arr.slice(0, i).concat(arr.slice(i + 1));
                 const remainingPermuted = getAllPermutations(remaining);
                 for (let j = 0; j < remainingPermuted.length; j++) {
-                    result.push([current].concat(remainingPermuted[j]));
+                    result.push([current, ...remainingPermuted[j]]);
                 }
             }
             return result;
@@ -671,12 +845,19 @@
         
         optimizeLineupBtn.addEventListener('click', async () => {
             if (!collectRosterData() || globalRoster.length === 0) {
-                showMessage("Please add players to the roster with valid stats first.");
+                showMessage("Please add players to the roster with complete and valid stats first.");
                 return;
             }
-            if (globalRoster.length > MAX_BRUTE_FORCE_OPTIMIZATION_SIZE + 2 && optimizationSimsSelect.value > 1000) {
-                 // Warn if it's going to be very slow for heuristic
-                if (!confirm(`Optimizing a roster of ${globalRoster.length} with many simulations might take a very long time. Continue?`)) {
+            if (globalRoster.length < 1) { // Should be caught by length === 0, but good check
+                showMessage("Optimization requires at least one player.");
+                return;
+            }
+
+            const numPlayers = globalRoster.length;
+            const simsPerLineup = parseInt(optimizationSimsSelect.value);
+
+            if (numPlayers > MAX_BRUTE_FORCE_OPTIMIZATION_SIZE && numPlayers * numPlayers * simsPerLineup > 2000000) { // Heuristic for long calc
+                 if (!confirm(`Optimizing a roster of ${numPlayers} players with ${simsPerLineup} simulations per lineup might take a very long time (potentially minutes). Continue?`)) {
                     return;
                 }
             }
@@ -685,86 +866,127 @@
             optimizationLoadingIndicator.style.display = 'block';
             optimizationResultDiv.classList.add('hidden');
             optimizeLineupBtn.disabled = true;
+            runSimulationBtn.disabled = true; // Disable simulation button too
             
             await new Promise(resolve => setTimeout(resolve, 50)); // Allow UI update
 
-            const numSimsForOpt = parseInt(optimizationSimsSelect.value);
             let bestLineup = [];
             let bestExpectedRuns = -1;
 
-            const playersToOptimize = [...globalRoster]; // Work with a copy
+            const playersToOptimize = globalRoster.map(p => ({...p})); // Deep copy for safety if objects were complex
 
-            if (playersToOptimize.length === 0) {
+            if (playersToOptimize.length === 0) { // Should be caught earlier
                  showMessage("No players to optimize.");
                  optimizationLoadingIndicator.style.display = 'none';
                  optimizeLineupBtn.disabled = false;
+                 runSimulationBtn.disabled = false;
                  return;
             }
             
             if (playersToOptimize.length === 1) {
-                bestLineup = playersToOptimize;
-                bestExpectedRuns = await runManySimulations(bestLineup, numSimsForOpt);
+                bestLineup = playersToOptimize; // Already a copy
+                bestExpectedRuns = await runManySimulations(bestLineup, simsPerLineup);
             } else if (playersToOptimize.length <= MAX_BRUTE_FORCE_OPTIMIZATION_SIZE) {
-                // Brute-force for small rosters
+                optimizationLoadingIndicator.textContent = `Optimizing (brute force, ${getAllPermutations(playersToOptimize).length} permutations)... This may take time.`;
                 const permutations = getAllPermutations(playersToOptimize);
+                let processedCount = 0;
                 for (const perm of permutations) {
-                    const avgRuns = await runManySimulations(perm, numSimsForOpt);
+                    const avgRuns = await runManySimulations(perm, simsPerLineup);
                     if (avgRuns > bestExpectedRuns) {
                         bestExpectedRuns = avgRuns;
-                        bestLineup = perm;
+                        bestLineup = perm; // perm is already a new array from getAllPermutations
+                    }
+                    processedCount++;
+                    if (processedCount % 10 === 0 || processedCount === permutations.length) { // Update UI periodically
+                         optimizationLoadingIndicator.textContent = `Optimizing (brute force)... ${((processedCount/permutations.length)*100).toFixed(0)}%`;
+                         await new Promise(resolve => setTimeout(resolve, 0)); // Yield
                     }
                 }
             } else {
-                // Heuristic: Hill Climbing / Stochastic Local Search for larger rosters
-                let currentLineup = [...playersToOptimize]; // Start with current order
-                // Shuffle for a random start to potentially find different local optima
+                // Heuristic: Stochastic Hill Climbing for larger rosters
+                optimizationLoadingIndicator.textContent = `Optimizing (heuristic search)... This may take time.`;
+                let currentLineup = [...playersToOptimize]; 
+                // Shuffle for a random start
                 for (let i = currentLineup.length - 1; i > 0; i--) {
                     const j = Math.floor(Math.random() * (i + 1));
                     [currentLineup[i], currentLineup[j]] = [currentLineup[j], currentLineup[i]];
                 }
 
                 bestLineup = [...currentLineup];
-                bestExpectedRuns = await runManySimulations(currentLineup, numSimsForOpt);
+                bestExpectedRuns = await runManySimulations(currentLineup, simsPerLineup);
 
-                const iterations = Math.min(1000, playersToOptimize.length * playersToOptimize.length * 5); // Limit iterations
+                // Iterations: e.g., N^2 for N players, or a fixed large number.
+                // More iterations = more thorough search but slower.
+                const iterations = Math.min(1500, numPlayers * numPlayers * 3); 
+                let noImprovementStreak = 0;
+                const maxNoImprovementStreak = Math.max(50, numPlayers * 5); // Stop if no improvement for a while
 
                 for (let i = 0; i < iterations; i++) {
-                    let tempLineup = [...bestLineup]; // Start from current best
-                    // Make a small change: swap two random players
+                    let tempLineup = [...bestLineup]; 
                     const idx1 = Math.floor(Math.random() * tempLineup.length);
                     let idx2 = Math.floor(Math.random() * tempLineup.length);
-                    while (idx1 === idx2 && tempLineup.length > 1) { // Ensure different indices if possible
+                    while (idx1 === idx2 && tempLineup.length > 1) { 
                         idx2 = Math.floor(Math.random() * tempLineup.length);
                     }
-                    [tempLineup[idx1], tempLineup[idx2]] = [tempLineup[idx2], tempLineup[idx1]];
+                    [tempLineup[idx1], tempLineup[idx2]] = [tempLineup[idx2], tempLineup[idx1]]; // Swap
                     
-                    const tempAvgRuns = await runManySimulations(tempLineup, numSimsForOpt);
+                    const tempAvgRuns = await runManySimulations(tempLineup, simsPerLineup);
                     if (tempAvgRuns > bestExpectedRuns) {
                         bestExpectedRuns = tempAvgRuns;
                         bestLineup = [...tempLineup];
+                        noImprovementStreak = 0; // Reset streak
+                    } else {
+                        noImprovementStreak++;
+                    }
+
+                    if (i % 20 === 0 || i === iterations -1) { // Update UI periodically
+                        optimizationLoadingIndicator.textContent = `Optimizing (heuristic search)... Iteration ${i+1}/${iterations}`;
+                        await new Promise(resolve => setTimeout(resolve, 0)); // Yield
+                    }
+                    if (noImprovementStreak > maxNoImprovementStreak) {
+                        optimizationLoadingIndicator.textContent = `Optimizing (heuristic search)... Converged after ${i+1} iterations.`;
+                        await new Promise(resolve => setTimeout(resolve, 0)); // Yield
+                        break; 
                     }
                 }
             }
 
             optimizedLineupList.innerHTML = '';
-            bestLineup.forEach(player => {
-                const li = document.createElement('li');
-                li.textContent = player.name;
-                optimizedLineupList.appendChild(li);
-            });
-            expectedRunsValue.textContent = bestExpectedRuns.toFixed(3);
+            if (bestLineup && bestLineup.length > 0) {
+                bestLineup.forEach(player => {
+                    const li = document.createElement('li');
+                    li.textContent = player.name || "Unnamed Player"; // Handle if name was missing
+                    optimizedLineupList.appendChild(li);
+                });
+                expectedRunsValue.textContent = bestExpectedRuns.toFixed(3);
+            } else {
+                 expectedRunsValue.textContent = "N/A";
+                 optimizedLineupList.innerHTML = '<li>No valid lineup found.</li>';
+            }
+            
             optimizationResultDiv.classList.remove('hidden');
             optimizationLoadingIndicator.style.display = 'none';
+            optimizationLoadingIndicator.textContent = 'Optimizing... This could take some time.'; // Reset text
             optimizeLineupBtn.disabled = false;
+            runSimulationBtn.disabled = false;
         });
 
 
         // --- Initialization ---
-        addPlayerBtn.addEventListener('click', () => addPlayerRow());
+        addPlayerBtn.addEventListener('click', () => {
+            addPlayerRow();
+            // After adding a row, it's good to save, though individual inputs also save.
+            // This ensures an empty added row gets into the globalRoster if user navigates away.
+            updateAndSaveRoster(); 
+        });
         
         // Load data on page start
         document.addEventListener('DOMContentLoaded', () => {
-            loadRosterFromURL(); // This will fall back to localStorage if no URL param
+            // Corrected the value for 2000 simulations in the select dropdown
+            const opt2000 = optimizationSimsSelect.querySelector('option[value_2000]');
+            if (opt2000) opt2000.value = "2000";
+
+            loadRosterFromURL(); 
         });
 
     </script>
