@@ -114,6 +114,14 @@
         .secondary-btn:hover {
             background-color: #4b5563;
         }
+        .apply-lineup-btn { /* Style for the new apply lineup button */
+            background-color: #10b981; /* Green */
+            border-color: #059669; /* Darker Green */
+            margin-top: 10px;
+        }
+        .apply-lineup-btn:hover {
+            background-color: #059669;
+        }
 
 
         table {
@@ -132,7 +140,6 @@
             background-color: #f9fafb; 
             font-weight: 600;
         }
-        /* Removed .stats-table td as the table itself is removed */
         .modal {
             position: fixed;
             left: 0;
@@ -225,9 +232,13 @@
                 <select id="optimizationSimsSelect">
                     <option value="100">100 (Fastest)</option>
                     <option value="500">500</option>
-                    <option value="1000" selected>1000 (Recommended)</option>
-                    <option value="2000">2000</option> 
-                    <option value="5000">5000 (Most Accurate)</option>
+                    <option value="1000" selected>1,000 (Recommended)</option>
+                    <option value="2000">2,000</option> 
+                    <option value="5000">5,000</option>
+                    <option value="10000">10,000</option>
+                    <option value="25000">25,000</option>
+                    <option value="50000">50,000 (Slow)</option>
+                    <option value="100000">100,000 (Very Slow)</option>
                 </select>
             </div>
             <button id="optimizeLineupBtn" class="mt-4">Optimize Lineup</button>
@@ -236,6 +247,7 @@
                 <h3 class="text-xl font-semibold mb-1">Optimized Lineup:</h3>
                 <ol id="optimizedLineupList" class="list-decimal list-inside pl-2 bg-gray-50 p-3 rounded"></ol>
                 <p class="mt-2 font-semibold">Expected Runs: <span id="expectedRunsValue" class="text-blue-700"></span></p>
+                <button id="applyOptimizedLineupBtn" class="apply-lineup-btn hidden">Use This Lineup</button> {/* New Button */}
             </div>
         </div>
 
@@ -262,7 +274,8 @@
         let runsChart = null;
         const MAX_RUNS_PER_INNING = 5;
         const NUM_INNINGS = 6;
-        const MAX_BRUTE_FORCE_OPTIMIZATION_SIZE = 8;
+        const MAX_BRUTE_FORCE_OPTIMIZATION_SIZE = 8; 
+        let lastOptimizedLineup = []; // To store the result of the optimizer
 
         // --- DOM Elements ---
         const rosterTableBody = document.getElementById('rosterTableBody');
@@ -271,14 +284,14 @@
         const runSimulationBtn = document.getElementById('runSimulationBtn');
         const simulationResultsDiv = document.getElementById('simulationResults');
         const runsHistogramChartCtx = document.getElementById('runsHistogramChart').getContext('2d');
-        const expectedRunsDisplay = document.getElementById('expectedRunsDisplay'); // Element to scroll to
+        const expectedRunsDisplay = document.getElementById('expectedRunsDisplay'); 
         const expectedRunsPerGameValue = document.getElementById('expectedRunsPerGameValue'); 
-        // runPercentagesTableBody is no longer needed
         const optimizationSimsSelect = document.getElementById('optimizationSimsSelect');
         const optimizeLineupBtn = document.getElementById('optimizeLineupBtn');
         const optimizationResultDiv = document.getElementById('optimizationResult');
         const optimizedLineupList = document.getElementById('optimizedLineupList');
         const expectedRunsValue = document.getElementById('expectedRunsValue');
+        const applyOptimizedLineupBtn = document.getElementById('applyOptimizedLineupBtn'); // New Button
         const generateShareUrlBtn = document.getElementById('generateShareUrlBtn');
         const shareUrlInput = document.getElementById('shareUrlInput');
         const copyUrlBtn = document.getElementById('copyUrlBtn');
@@ -530,11 +543,13 @@
         function loadRosterFromURL() {
             const params = new URLSearchParams(window.location.search);
             const rosterData = params.get('roster');
+            let decodedRosterFromUrl = null; 
+
             if (rosterData) {
                 try {
-                    const decodedRoster = JSON.parse(atob(rosterData));
-                    if (Array.isArray(decodedRoster)) {
-                        const validatedRoster = decodedRoster.map(p => ({ 
+                    decodedRosterFromUrl = JSON.parse(atob(rosterData));
+                    if (Array.isArray(decodedRosterFromUrl)) {
+                        const validatedRoster = decodedRosterFromUrl.map(p => ({ 
                             name: p.name || '',
                             ab: p.ab === undefined || p.ab === null ? '' : p.ab,
                             h:  p.h  === undefined || p.h  === null ? '' : p.h,
@@ -556,15 +571,18 @@
                                     );
                         });
 
-                        if (validatedRoster.length !== decodedRoster.length) {
+                        if (validatedRoster.length !== decodedRosterFromUrl.length && decodedRosterFromUrl.length > 0) {
                             showMessage("Some player data from the URL was invalid or incomplete and has been omitted/adjusted.");
                         }
-                        if (validatedRoster.length > 0) globalRoster = validatedRoster;
-                        else if (decodedRoster.length > 0) {
+                        if (validatedRoster.length > 0) {
+                             globalRoster = validatedRoster;
+                        } else if (decodedRosterFromUrl.length > 0) { 
                              showMessage("Roster data in URL was invalid. Loading from local storage instead.");
                              globalRoster = []; 
-                        } else globalRoster = [];
-                    } else {
+                        } else { 
+                            globalRoster = [];
+                        }
+                    } else { 
                          showMessage("Invalid roster format in URL. Loading from local storage instead.");
                          globalRoster = [];
                     }
@@ -573,15 +591,19 @@
                     showMessage("Could not load roster from URL: Corrupted data. Loading from local storage.");
                     globalRoster = [];
                 }
-                window.history.replaceState({}, document.title, window.location.pathname);
+                window.history.replaceState({}, document.title, window.location.pathname); 
             }
             
-            if (!rosterData || (rosterData && globalRoster.length === 0 && decodedRoster && decodedRoster.length > 0) || (rosterData && !Array.isArray(globalRoster) )) {
-                 loadRosterFromLocalStorage(); // Fallback if URL load fails or results in empty roster from non-empty URL data
-            } else {
+            if (!rosterData || (rosterData && globalRoster.length === 0 && decodedRosterFromUrl && decodedRosterFromUrl.length > 0) ) {
+                 loadRosterFromLocalStorage(); 
+            } else { 
                  renderRosterFromGlobal(); 
                  saveRosterToLocalStorage(); 
-                 if (params.get('roster') && globalRoster.length > 0) showMessage("Roster loaded from URL!");
+                 if (params.get('roster') && globalRoster.length > 0) { 
+                    showMessage("Roster loaded from URL!");
+                 } else if (params.get('roster') && (!globalRoster || globalRoster.length === 0) && (!decodedRosterFromUrl || decodedRosterFromUrl.length === 0)) {
+                    loadRosterFromLocalStorage();
+                 }
             }
         }
         
@@ -812,7 +834,6 @@
 
             const labels = [];
             const data = [];
-            // Removed runPercentagesTableBody population
 
             let practicalMaxRuns = 0;
             for (const runs in simResults.counts) {
@@ -826,7 +847,6 @@
                 const count = simResults.counts[i] || 0;
                 labels.push(i.toString());
                 data.push(count);
-                // Table population removed
             }
             
             if (runsChart) { runsChart.destroy(); }
@@ -837,11 +857,6 @@
             });
 
             simulationResultsDiv.classList.remove('hidden');
-            // Scroll the expected runs display into view
-            if (expectedRunsDisplay) {
-                expectedRunsDisplay.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-
             runSimulationBtn.disabled = false;
             optimizeLineupBtn.disabled = false;
         });
@@ -888,22 +903,31 @@
             }
             const numPlayers = rosterForOpt.length;
             const simsPerLineup = parseInt(optimizationSimsSelect.value);
-            if (numPlayers > MAX_BRUTE_FORCE_OPTIMIZATION_SIZE && numPlayers * numPlayers * simsPerLineup > 1500000) { 
-                 if (!confirm(`Optimizing a roster of ${numPlayers} players with ${simsPerLineup} simulations per lineup might take a significant amount of time. Continue?`)) return;
+            
+            const optimizationComplexity = (numPlayers <= MAX_BRUTE_FORCE_OPTIMIZATION_SIZE) ? 
+                                        (getAllPermutations(rosterForOpt).length * simsPerLineup) : 
+                                        (numPlayers * numPlayers * 4 * simsPerLineup) ; 
+
+            if (optimizationComplexity > 50000000 && simsPerLineup > 5000) { 
+                 if (!confirm(`This optimization might be very lengthy (potentially several minutes or more) due to the number of players and simulations per lineup (${simsPerLineup.toLocaleString()}). Continue?`)) return;
+            } else if (simsPerLineup >= 50000 && numPlayers > 3) { 
+                 if (!confirm(`Running ${simsPerLineup.toLocaleString()} simulations per lineup for optimization will be very slow. Continue?`)) return;
             }
 
             optimizationLoadingIndicator.style.display = 'block';
             optimizationResultDiv.classList.add('hidden');
+            applyOptimizedLineupBtn.classList.add('hidden'); // Hide apply button initially
             optimizeLineupBtn.disabled = true;
             runSimulationBtn.disabled = true; 
             await new Promise(resolve => setTimeout(resolve, 50)); 
 
-            let bestLineup = [];
+            // let bestLineup = []; // This was local, changed to use global-like lastOptimizedLineup
+            lastOptimizedLineup = []; // Reset before new optimization
             let bestExpectedRuns = -1;
             
             if (numPlayers === 1) {
-                bestLineup = [...rosterForOpt]; 
-                bestExpectedRuns = await runManySimulationsForOptimization(bestLineup, simsPerLineup);
+                lastOptimizedLineup = [...rosterForOpt]; 
+                bestExpectedRuns = await runManySimulationsForOptimization(lastOptimizedLineup, simsPerLineup);
             } else if (numPlayers <= MAX_BRUTE_FORCE_OPTIMIZATION_SIZE) {
                 const permutations = getAllPermutations(rosterForOpt); 
                 const numPerms = permutations.length; 
@@ -911,9 +935,9 @@
                 let processedCount = 0;
                 for (const perm of permutations) {
                     const avgRuns = await runManySimulationsForOptimization(perm, simsPerLineup);
-                    if (avgRuns > bestExpectedRuns) { bestExpectedRuns = avgRuns; bestLineup = perm; }
+                    if (avgRuns > bestExpectedRuns) { bestExpectedRuns = avgRuns; lastOptimizedLineup = perm; }
                     processedCount++;
-                    if (processedCount % Math.max(1, Math.floor(numPerms/50)) === 0 || processedCount === numPerms) { 
+                    if (processedCount % Math.max(1, Math.floor(numPerms/100)) === 0 || processedCount === numPerms) { 
                          optimizationLoadingIndicator.textContent = `Optimizing (brute force)... ${((processedCount/numPerms)*100).toFixed(0)}%`;
                          await new Promise(resolve => setTimeout(resolve, 0)); 
                     }
@@ -925,22 +949,27 @@
                     const j = Math.floor(Math.random() * (i + 1));
                     [currentLineup[i], currentLineup[j]] = [currentLineup[j], currentLineup[i]];
                 }
-                bestLineup = [...currentLineup];
-                bestExpectedRuns = await runManySimulationsForOptimization(currentLineup, simsPerLineup);
-                const iterations = Math.min(2000, numPlayers * numPlayers * 4); 
+                lastOptimizedLineup = [...currentLineup];
+                bestExpectedRuns = await runManySimulationsForOptimization(lastOptimizedLineup, simsPerLineup);
+                
+                const baseIterations = Math.min(2000, numPlayers * numPlayers * 4);
+                const iterations = (simsPerLineup > 10000) ? Math.max(500, Math.floor(baseIterations / (simsPerLineup/5000))) : baseIterations;
                 let noImprovementStreak = 0;
                 const maxNoImprovementStreak = Math.max(100, numPlayers * 10); 
+                optimizationLoadingIndicator.textContent = `Optimizing (heuristic search, ${iterations} iterations)...`;
+                await new Promise(resolve => setTimeout(resolve, 0)); 
+
                 for (let i = 0; i < iterations; i++) {
-                    let tempLineup = [...bestLineup]; 
+                    let tempLineup = [...lastOptimizedLineup]; 
                     const idx1 = Math.floor(Math.random() * tempLineup.length);
                     let idx2 = Math.floor(Math.random() * tempLineup.length);
                     while (idx1 === idx2 && tempLineup.length > 1) idx2 = Math.floor(Math.random() * tempLineup.length);
                     [tempLineup[idx1], tempLineup[idx2]] = [tempLineup[idx2], tempLineup[idx1]]; 
                     const tempAvgRuns = await runManySimulationsForOptimization(tempLineup, simsPerLineup);
                     if (tempAvgRuns > bestExpectedRuns) {
-                        bestExpectedRuns = tempAvgRuns; bestLineup = [...tempLineup]; noImprovementStreak = 0; 
+                        bestExpectedRuns = tempAvgRuns; lastOptimizedLineup = [...tempLineup]; noImprovementStreak = 0; 
                     } else noImprovementStreak++;
-                    if (i % 50 === 0 || i === iterations -1) { 
+                    if (i % Math.max(1, Math.floor(iterations/50)) === 0 || i === iterations -1) { 
                         optimizationLoadingIndicator.textContent = `Optimizing (heuristic search)... Iteration ${i+1}/${iterations}`;
                         await new Promise(resolve => setTimeout(resolve, 0)); 
                     }
@@ -953,16 +982,18 @@
             }
 
             optimizedLineupList.innerHTML = '';
-            if (bestLineup && bestLineup.length > 0) {
-                bestLineup.forEach(player => {
+            if (lastOptimizedLineup && lastOptimizedLineup.length > 0) {
+                lastOptimizedLineup.forEach(player => {
                     const li = document.createElement('li');
                     li.textContent = player.name || "Unnamed Player"; 
                     optimizedLineupList.appendChild(li);
                 });
                 expectedRunsValue.textContent = bestExpectedRuns.toFixed(3);
+                applyOptimizedLineupBtn.classList.remove('hidden'); // Show the button
             } else {
                  expectedRunsValue.textContent = "N/A";
                  optimizedLineupList.innerHTML = '<li>No valid lineup found.</li>';
+                 applyOptimizedLineupBtn.classList.add('hidden'); // Keep hidden if no lineup
             }
             optimizationResultDiv.classList.remove('hidden');
             optimizationLoadingIndicator.style.display = 'none';
@@ -970,6 +1001,27 @@
             optimizeLineupBtn.disabled = false;
             runSimulationBtn.disabled = false;
         });
+
+        applyOptimizedLineupBtn.addEventListener('click', () => {
+            if (lastOptimizedLineup && lastOptimizedLineup.length > 0) {
+                // The players in lastOptimizedLineup already have their stats as numbers.
+                // globalRoster expects stats as strings (or numbers that will be treated as such by input fields).
+                // So, we map them back, ensuring they are in the format expected by addPlayerRow/renderRosterFromGlobal.
+                globalRoster = lastOptimizedLineup.map(p => ({
+                    name: p.name,
+                    ab: p.ab.toString(), // Convert back to string for input fields
+                    h: p.h.toString(),
+                    tb: p.tb.toString(),
+                    so: p.so.toString()
+                }));
+                renderRosterFromGlobal();
+                saveRosterToLocalStorage();
+                showMessage("Optimized lineup has been applied to the main roster.");
+            } else {
+                showMessage("No optimized lineup available to apply.");
+            }
+        });
+
 
         // --- Initialization ---
         addPlayerBtn.addEventListener('click', () => {
