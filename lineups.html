@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Little League Stat Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Light gray background */
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .card {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1f2937; /* Dark gray */
+            margin-bottom: 1rem;
+            border-bottom: 1px solid #e5e7eb; /* Light gray border */
+            padding-bottom: 0.5rem;
+        }
+        label {
+            font-weight: 500;
+            color: #374151; /* Medium gray */
+        }
+        input[type="text"], input[type="number"], select {
+            border: 1px solid #d1d5db; /* Gray border */
+            border-radius: 4px;
+            padding: 8px 12px;
+            width: 100%;
+            margin-top: 4px;
+            box-sizing: border-box;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield; /* Firefox */
+        }
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none; /* Safari and Chrome */
+            margin: 0;
+        }
+        button {
+            background-color: #3b82f6; /* Blue */
+            color: white;
+            font-weight: 500;
+            padding: 10px 15px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #2563eb; /* Darker blue */
+        }
+        .delete-btn {
+            background-color: #ef4444; /* Red */
+        }
+        .delete-btn:hover {
+            background-color: #dc2626; /* Darker red */
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        th, td {
+            border: 1px solid #e5e7eb; /* Light gray border */
+            padding: 10px;
+            text-align: left;
+            font-size: 0.9rem;
+        }
+        th {
+            background-color: #f9fafb; /* Very light gray */
+            font-weight: 600;
+        }
+        .stats-table td {
+            text-align: center;
+        }
+        .modal {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000; /* Ensure it's on top */
+        }
+        .modal-content {
+            background-color: white;
+            padding: 25px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        #loadingIndicator {
+            display: none; /* Hidden by default */
+            margin-top: 1rem;
+            font-weight: 500;
+            color: #1d4ed8; /* Darker blue for text */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-8">Little League Stat Simulator</h1>
+
+        <div class="card">
+            <h2>Roster Input</h2>
+            <table id="rosterTable">
+                <thead>
+                    <tr>
+                        <th>Player Name</th>
+                        <th>At-Bats (AB)</th>
+                        <th>Hits (H)</th>
+                        <th>Total Bases (TB)</th>
+                        <th>Strikeouts (SO)</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="rosterTableBody">
+                    </tbody>
+            </table>
+            <button id="addPlayerBtn" class="mt-4">Add Player</button>
+        </div>
+
+        <div class="card">
+            <h2>Game Simulation (100,000 Games)</h2>
+            <button id="runSimulationBtn">Run Simulation</button>
+            <div id="loadingIndicator">Simulating... Please wait. This might take a moment.</div>
+            <div id="simulationResults" class="mt-4 hidden">
+                <h3 class="text-xl font-semibold mb-2">Run Distribution Histogram</h3>
+                <canvas id="runsHistogramChart" width="400" height="200"></canvas>
+                <h3 class="text-xl font-semibold mt-6 mb-2">Run Percentages</h3>
+                <table id="runPercentagesTable" class="stats-table">
+                    <thead><tr><th>Runs Scored</th><th>Frequency</th><th>Percentage</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Lineup Optimization</h2>
+            <div>
+                <label for="optimizationSimsSelect" class="block mb-1">Simulations per Lineup:</label>
+                <select id="optimizationSimsSelect">
+                    <option value="100">100 (Fastest)</option>
+                    <option value="500">500</option>
+                    <option value="1000" selected>1000 (Recommended)</option>
+                    <option value_2000>2000</option>
+                    <option value="5000">5000 (Most Accurate)</option>
+                </select>
+            </div>
+            <button id="optimizeLineupBtn" class="mt-4">Optimize Lineup</button>
+            <div id="optimizationLoadingIndicator" class="hidden mt-2 font-medium text-blue-600">Optimizing... This could take some time.</div>
+            <div id="optimizationResult" class="mt-4 hidden">
+                <h3 class="text-xl font-semibold mb-1">Optimized Lineup:</h3>
+                <ol id="optimizedLineupList" class="list-decimal list-inside pl-2 bg-gray-50 p-3 rounded"></ol>
+                <p class="mt-2 font-semibold">Expected Runs: <span id="expectedRunsValue" class="text-blue-700"></span></p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Share Roster</h2>
+            <button id="generateShareUrlBtn">Generate Shareable URL</button>
+            <div class="mt-2 flex items-center space-x-2">
+                <input type="text" id="shareUrlInput" readonly class="bg-gray-100 flex-grow">
+                <button id="copyUrlBtn">Copy URL</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="messageModal" class="modal hidden">
+        <div class="modal-content">
+            <p id="modalMessageText"></p>
+            <button id="closeModalBtn" class="mt-4">Close</button>
+        </div>
+    </div>
+
+    <script>
+        // --- Global State & Constants ---
+        let globalRoster = [];
+        let runsChart = null;
+        const MAX_RUNS_PER_INNING = 5;
+        const NUM_INNINGS = 6;
+        const MAX_BRUTE_FORCE_OPTIMIZATION_SIZE = 8; // Max roster size for brute-force permutation
+
+        // --- DOM Elements ---
+        const rosterTableBody = document.getElementById('rosterTableBody');
+        const addPlayerBtn = document.getElementById('addPlayerBtn');
+        const runSimulationBtn = document.getElementById('runSimulationBtn');
+        const simulationResultsDiv = document.getElementById('simulationResults');
+        const runsHistogramChartCtx = document.getElementById('runsHistogramChart').getContext('2d');
+        const runPercentagesTableBody = document.getElementById('runPercentagesTable').querySelector('tbody');
+        const optimizationSimsSelect = document.getElementById('optimizationSimsSelect');
+        const optimizeLineupBtn = document.getElementById('optimizeLineupBtn');
+        const optimizationResultDiv = document.getElementById('optimizationResult');
+        const optimizedLineupList = document.getElementById('optimizedLineupList');
+        const expectedRunsValue = document.getElementById('expectedRunsValue');
+        const generateShareUrlBtn = document.getElementById('generateShareUrlBtn');
+        const shareUrlInput = document.getElementById('shareUrlInput');
+        const copyUrlBtn = document.getElementById('copyUrlBtn');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const optimizationLoadingIndicator = document.getElementById('optimizationLoadingIndicator');
+        const messageModal = document.getElementById('messageModal');
+        const modalMessageText = document.getElementById('modalMessageText');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+
+        // --- Utility Functions ---
+        function showMessage(message) {
+            modalMessageText.textContent = message;
+            messageModal.classList.remove('hidden');
+        }
+
+        function hideMessage() {
+            messageModal.classList.add('hidden');
+        }
+        
+        closeModalBtn.addEventListener('click', hideMessage);
+
+        // --- Roster Management ---
+        function addPlayerRow(player = { name: '', ab: '', h: '', tb: '', so: '' }) {
+            const row = rosterTableBody.insertRow();
+            row.innerHTML = `
+                <td><input type="text" class="player-name" value="${player.name}" placeholder="Player Name"></td>
+                <td><input type="number" class="player-ab" value="${player.ab}" placeholder="e.g. 100" min="0"></td>
+                <td><input type="number" class="player-h" value="${player.h}" placeholder="e.g. 30" min="0"></td>
+                <td><input type="number" class="player-tb" value="${player.tb}" placeholder="e.g. 50" min="0"></td>
+                <td><input type="number" class="player-so" value="${player.so}" placeholder="e.g. 20" min="0"></td>
+                <td><button class="delete-btn text-sm px-2 py-1">Delete</button></td>
+            `;
+            row.querySelector('.delete-btn').addEventListener('click', () => {
+                deletePlayerRow(row);
+            });
+
+            // Add event listeners to save on change
+            row.querySelectorAll('input').forEach(input => {
+                input.addEventListener('change', updateAndSaveRoster);
+                input.addEventListener('keyup', updateAndSaveRoster); // For more immediate saving
+            });
+        }
+
+        function deletePlayerRow(rowElement) {
+            const rowIndex = Array.from(rosterTableBody.rows).indexOf(rowElement);
+            if (rowIndex > -1) {
+                globalRoster.splice(rowIndex, 1);
+                rosterTableBody.deleteRow(rowIndex);
+                saveRosterToLocalStorage();
+            }
+        }
+        
+        function updateAndSaveRoster() {
+            collectRosterData(); // Updates globalRoster from table inputs
+            saveRosterToLocalStorage();
+        }
+
+
+        function collectRosterData() {
+            globalRoster = [];
+            const rows = rosterTableBody.rows;
+            let allValid = true;
+            for (let i = 0; i < rows.length; i++) {
+                const name = rows[i].querySelector('.player-name').value.trim();
+                const ab = parseInt(rows[i].querySelector('.player-ab').value);
+                const h = parseInt(rows[i].querySelector('.player-h').value);
+                const tb = parseInt(rows[i].querySelector('.player-tb').value);
+                const so = parseInt(rows[i].querySelector('.player-so').value);
+
+                if (name && !isNaN(ab) && !isNaN(h) && !isNaN(tb) && !isNaN(so)) {
+                     if (ab < 0 || h < 0 || tb < 0 || so < 0) {
+                        showMessage(`Player ${name || 'Unnamed'}: Stats must be non-negative.`);
+                        allValid = false; continue;
+                    }
+                    if (h > ab) {
+                        showMessage(`Player ${name || 'Unnamed'}: Hits (H) cannot exceed At-Bats (AB).`);
+                        allValid = false; continue;
+                    }
+                    if (tb < h) { // Each hit is at least 1 base
+                        showMessage(`Player ${name || 'Unnamed'}: Total Bases (TB) must be at least Hits (H).`);
+                         allValid = false; continue;
+                    }
+                     if (so > ab) {
+                        showMessage(`Player ${name || 'Unnamed'}: Strikeouts (SO) cannot exceed At-Bats (AB).`);
+                        allValid = false; continue;
+                    }
+                    if ( (h + so) > ab && (ab - h - so < 0) ) { // (AB - H - SO) is used for P_OtherOut
+                        // This is a more complex validation, if SO makes (AB-H-SO) negative
+                        // It implies non-hit outs are negative. Handled in prob calculation.
+                        // For now, ensure SO <= AB - H
+                        if (so > (ab - h)) {
+                             showMessage(`Player ${name || 'Unnamed'}: Strikeouts (SO) seem too high relative to Hits (H) and At-Bats (AB). SO should be <= AB - H.`);
+                             allValid = false; continue;
+                        }
+                    }
+                    globalRoster.push({ name, ab, h, tb, so });
+                } else if (name || !isNaN(ab) || !isNaN(h) || !isNaN(tb) || !isNaN(so)) {
+                    // If any field is filled but not all, it's an incomplete row.
+                    // For now, we just skip it in globalRoster unless all numeric fields are valid.
+                    // A more robust validation could highlight incomplete rows.
+                }
+            }
+            return allValid;
+        }
+        
+        function renderRosterFromGlobal() {
+            rosterTableBody.innerHTML = ''; // Clear existing rows
+            globalRoster.forEach(player => addPlayerRow(player));
+        }
+
+        function saveRosterToLocalStorage() {
+            // No need to call collectRosterData here if inputs directly update globalRoster
+            // or if collectRosterData is called right before saving.
+            // For simplicity, let's ensure globalRoster is up-to-date before saving.
+            // This is handled by input event listeners calling updateAndSaveRoster.
+            localStorage.setItem('littleLeagueRoster', JSON.stringify(globalRoster));
+        }
+
+        function loadRosterFromLocalStorage() {
+            const savedRoster = localStorage.getItem('littleLeagueRoster');
+            if (savedRoster) {
+                globalRoster = JSON.parse(savedRoster);
+                renderRosterFromGlobal();
+            } else {
+                // Add one empty row if no saved data
+                addPlayerRow();
+            }
+        }
+
+        function loadRosterFromURL() {
+            const params = new URLSearchParams(window.location.search);
+            const rosterData = params.get('roster');
+            if (rosterData) {
+                try {
+                    const decodedRoster = JSON.parse(atob(rosterData));
+                    if (Array.isArray(decodedRoster)) {
+                        globalRoster = decodedRoster;
+                        renderRosterFromGlobal();
+                        saveRosterToLocalStorage(); // Save URL roster to local storage
+                        showMessage("Roster loaded from URL!");
+                    }
+                } catch (e) {
+                    console.error("Error parsing roster data from URL:", e);
+                    showMessage("Could not load roster from URL: Invalid data format.");
+                    loadRosterFromLocalStorage(); // Fallback to local storage
+                }
+            } else {
+                loadRosterFromLocalStorage();
+            }
+        }
+        
+        generateShareUrlBtn.addEventListener('click', () => {
+            if (!collectRosterData() || globalRoster.length === 0) {
+                 showMessage("Please enter valid player data before generating a URL.");
+                 return;
+            }
+            const jsonRoster = JSON.stringify(globalRoster);
+            const base64Roster = btoa(jsonRoster);
+            const url = `${window.location.origin}${window.location.pathname}?roster=${base64Roster}`;
+            shareUrlInput.value = url;
+        });
+
+        copyUrlBtn.addEventListener('click', () => {
+            if (shareUrlInput.value) {
+                shareUrlInput.select();
+                document.execCommand('copy');
+                showMessage("URL copied to clipboard!");
+            } else {
+                showMessage("Generate a URL first.");
+            }
+        });
+
+        // --- Probability Calculation ---
+        function calculatePlayerProbs(player) {
+            if (!player || player.ab === 0) {
+                return { ...player, P_SO: 0, P_Out_Other: 1, P_1B: 0, P_2B: 0, P_HR: 0, C_SO: 0, C_Out_Other: 1, C_1B: 1, C_2B: 1, C_HR: 1 };
+            }
+
+            let { ab, h, tb, so } = player;
+            ab = Number(ab); h = Number(h); tb = Number(tb); so = Number(so);
+
+
+            const avg = h / ab;
+            const slg = tb / ab;
+            const iso = Math.max(0, slg - avg);
+
+            let p_hr = 0, p_2b = 0, p_1b = 0;
+
+            if (avg > 0) {
+                const alpha = 2.0; // Assumed ratio of 2B probability to HR probability
+                p_hr = iso / (alpha + 3.0);
+                p_2b = alpha * p_hr;
+
+                if (p_hr + p_2b > avg) { // Cap XBH prob sum at AVG
+                    const total_xbh_prob_raw = p_hr + p_2b;
+                    if (total_xbh_prob_raw > 0) {
+                        p_hr = (p_hr / total_xbh_prob_raw) * avg;
+                        p_2b = (p_2b / total_xbh_prob_raw) * avg;
+                    } else { // Should not happen if avg > 0 and iso was calculated
+                        p_hr = 0; p_2b = 0;
+                    }
+                }
+                
+                p_1b = avg - p_hr - p_2b;
+
+                // Ensure non-negativity after potential caps
+                p_hr = Math.max(0, p_hr);
+                p_2b = Math.max(0, p_2b);
+                p_1b = Math.max(0, avg - p_hr - p_2b); // Recalculate p_1b based on potentially adjusted p_hr, p_2b
+
+                // Normalize hit probabilities to sum exactly to avg
+                const current_sum_hit_probs = p_1b + p_2b + p_hr;
+                if (current_sum_hit_probs > 0 && avg > 0) {
+                    const scale = avg / current_sum_hit_probs;
+                    p_1b *= scale;
+                    p_2b *= scale;
+                    p_hr *= scale;
+                } else if (avg > 0) { // If all calculations led to zero hit type probs but avg is positive
+                    p_1b = avg;
+                    p_2b = 0;
+                    p_hr = 0;
+                }
+            }
+            
+            let p_so = so / ab;
+            let p_other_out = (ab - h - so) / ab;
+
+            if (p_other_out < 0) { // If SO is too high (e.g. SO > AB - H)
+                p_other_out = 0;
+                p_so = (ab - h) / ab; // All non-hit outcomes are SOs
+            }
+            p_so = Math.max(0, p_so); // Ensure non-negative
+
+            // Ensure all probabilities sum to 1.0 by adjusting p_other_out (most flexible category)
+            const sum_probs_before_final_adjust = p_1b + p_2b + p_hr + p_so + p_other_out;
+            if (Math.abs(sum_probs_before_final_adjust - 1.0) > 1e-9) { // If not close to 1
+                 p_other_out = 1.0 - (p_1b + p_2b + p_hr + p_so);
+                 p_other_out = Math.max(0, p_other_out); // ensure it's not negative from rounding
+            }
+            // Final check and force sum to 1 for cumulative distribution
+            let final_p_so = p_so;
+            let final_p_other_out = p_other_out;
+            let final_p_1b = p_1b;
+            let final_p_2b = p_2b;
+            let final_p_hr = p_hr;
+            
+            const totalForCumulative = final_p_so + final_p_other_out + final_p_1b + final_p_2b + final_p_hr;
+            if (Math.abs(totalForCumulative - 1.0) > 1e-9 && totalForCumulative > 0) {
+                const scaleFactor = 1.0 / totalForCumulative;
+                final_p_so *= scaleFactor;
+                final_p_other_out *= scaleFactor;
+                final_p_1b *= scaleFactor;
+                final_p_2b *= scaleFactor;
+                final_p_hr *= scaleFactor;
+            } else if (totalForCumulative === 0 && ab > 0) { // Edge case: player always gets out, not via hit/SO
+                final_p_other_out = 1.0;
+            }
+
+
+            return {
+                ...player,
+                P_SO: final_p_so, P_Out_Other: final_p_other_out, P_1B: final_p_1b, P_2B: final_p_2b, P_HR: final_p_hr,
+                C_SO: final_p_so,
+                C_Out_Other: final_p_so + final_p_other_out,
+                C_1B: final_p_so + final_p_other_out + final_p_1b,
+                C_2B: final_p_so + final_p_other_out + final_p_1b + final_p_2b,
+                C_HR: 1.0 // final_p_so + final_p_other_out + final_p_1b + final_p_2b + final_p_hr (should be 1)
+            };
+        }
+
+
+        // --- Game Simulation Logic ---
+        function getPAOutcome(playerProbs) {
+            const r = Math.random();
+            if (r < playerProbs.C_SO) return "SO";
+            if (r < playerProbs.C_Out_Other) return "OutOther";
+            if (r < playerProbs.C_1B) return "1B";
+            if (r < playerProbs.C_2B) return "2B";
+            return "HR"; // Remainder is HR
+        }
+
+        function simulateGame(lineupWithProbs) {
+            if (!lineupWithProbs || lineupWithProbs.length === 0) return 0;
+
+            let totalGameRuns = 0;
+            let currentBatterIdx = 0;
+
+            for (let inning = 0; inning < NUM_INNINGS; inning++) {
+                let outs = 0;
+                let inningRuns = 0;
+                let bases = [null, null, null]; // 0:1st, 1:2nd, 2:3rd. Value is the batter object (or 1 for simplicity)
+
+                while (outs < 3 && inningRuns < MAX_RUNS_PER_INNING) {
+                    const batter = lineupWithProbs[currentBatterIdx];
+                    const outcome = getPAOutcome(batter);
+                    let runsThisPA = 0;
+
+                    if (outcome === "SO" || outcome === "OutOther") {
+                        outs++;
+                    } else { // Hit
+                        const batterId = 1; // Simplified representation of a runner
+                        if (outcome === "HR") {
+                            runsThisPA++; // Batter scores
+                            bases.forEach(runner => { if (runner) runsThisPA++; });
+                            bases = [null, null, null];
+                        } else if (outcome === "2B") {
+                            // Runner on 3rd scores
+                            if (bases[2]) { runsThisPA++; bases[2] = null; }
+                            // Runner on 2nd scores
+                            if (bases[1]) { runsThisPA++; bases[1] = null; }
+                            // Runner on 1st to 3rd
+                            if (bases[0]) { bases[2] = bases[0]; bases[0] = null; }
+                            // Batter to 2nd
+                            bases[1] = batterId;
+                        } else if (outcome === "1B") {
+                            // Runner on 3rd scores
+                            if (bases[2]) { runsThisPA++; bases[2] = null; }
+                            // Runner on 2nd to 3rd
+                            if (bases[1]) { bases[2] = bases[1]; bases[1] = null; }
+                            // Runner on 1st to 2nd
+                            if (bases[0]) { bases[1] = bases[0]; bases[0] = null; }
+                            // Batter to 1st
+                            bases[0] = batterId;
+                        }
+                    }
+                    
+                    inningRuns += runsThisPA;
+                    if (inningRuns >= MAX_RUNS_PER_INNING) {
+                        inningRuns = MAX_RUNS_PER_INNING; // Cap at 5
+                        // Inning ends immediately
+                        totalGameRuns += inningRuns;
+                        currentBatterIdx = (currentBatterIdx + 1) % lineupWithProbs.length;
+                        break; 
+                    }
+                    currentBatterIdx = (currentBatterIdx + 1) % lineupWithProbs.length;
+                }
+                if (inningRuns < MAX_RUNS_PER_INNING) { // if inning didn't end due to run limit
+                     totalGameRuns += inningRuns;
+                }
+            }
+            return totalGameRuns;
+        }
+        
+        async function runManySimulations(lineup, numSims) {
+            return new Promise(resolve => {
+                // For very large numSims, this could still block.
+                // A more advanced version might use Web Workers or chunking with setTimeout.
+                // For now, direct loop for simplicity, assuming numSims for optimization is manageable.
+                let totalRunsAcrossSims = 0;
+                const processedLineup = lineup.map(p => calculatePlayerProbs(p));
+                if (processedLineup.some(p => !p)) { // Check for invalid player data
+                    console.error("Invalid player data in lineup for simulation");
+                    resolve(0); // Or handle error appropriately
+                    return;
+                }
+
+                for (let i = 0; i < numSims; i++) {
+                    totalRunsAcrossSims += simulateGame(processedLineup);
+                }
+                resolve(totalRunsAcrossSims / numSims);
+            });
+        }
+
+
+        runSimulationBtn.addEventListener('click', async () => {
+            if (!collectRosterData() || globalRoster.length === 0) {
+                showMessage("Please add players to the roster with valid stats first.");
+                return;
+            }
+            
+            loadingIndicator.style.display = 'block';
+            simulationResultsDiv.classList.add('hidden'); // Hide old results
+            runSimulationBtn.disabled = true;
+
+            // Use setTimeout to allow UI to update before heavy computation
+            await new Promise(resolve => setTimeout(resolve, 50));
+
+
+            const processedRoster = globalRoster.map(p => calculatePlayerProbs(p));
+            if (processedRoster.some(p => !p || p.ab === undefined)) {
+                 showMessage("Error processing player data. Please check inputs.");
+                 loadingIndicator.style.display = 'none';
+                 runSimulationBtn.disabled = false;
+                 return;
+            }
+
+
+            const numSimulations = 100000;
+            const runCounts = {};
+            const maxPossibleRuns = NUM_INNINGS * MAX_RUNS_PER_INNING; // e.g., 6 * 5 = 30
+
+            for (let i = 0; i < numSimulations; i++) {
+                const runs = simulateGame(processedRoster);
+                runCounts[runs] = (runCounts[runs] || 0) + 1;
+            }
+
+            // Prepare data for chart and table
+            const labels = [];
+            const data = [];
+            runPercentagesTableBody.innerHTML = ''; // Clear previous results
+
+            for (let i = 0; i <= maxPossibleRuns; i++) {
+                const count = runCounts[i] || 0;
+                if (count > 0 || i <= 15) { // Show up to 15 runs even if zero, or any with counts
+                    labels.push(i.toString());
+                    data.push(count);
+                    const percentage = ((count / numSimulations) * 100).toFixed(2);
+                    const row = runPercentagesTableBody.insertRow();
+                    row.innerHTML = `<td>${i}</td><td>${count}</td><td>${percentage}%</td>`;
+                }
+            }
+            
+            if (runsChart) {
+                runsChart.destroy();
+            }
+            runsChart = new Chart(runsHistogramChartCtx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Frequency of Runs Scored',
+                        data: data,
+                        backgroundColor: 'rgba(59, 130, 246, 0.7)', // Blue
+                        borderColor: 'rgba(59, 130, 246, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: { y: { beginAtZero: true, title: { display: true, text: 'Number of Games' } },
+                              x: { title: { display: true, text: 'Runs Scored in a Game' } } },
+                    responsive: true,
+                    maintainAspectRatio: false 
+                }
+            });
+
+            simulationResultsDiv.classList.remove('hidden');
+            loadingIndicator.style.display = 'none';
+            runSimulationBtn.disabled = false;
+        });
+
+        // --- Lineup Optimization ---
+        function getAllPermutations(arr) { // Generates permutations of the array itself
+            if (arr.length === 0) return [[]];
+            if (arr.length === 1) return [arr];
+
+            const result = [];
+            for (let i = 0; i < arr.length; i++) {
+                const current = arr[i];
+                const remaining = arr.slice(0, i).concat(arr.slice(i + 1));
+                const remainingPermuted = getAllPermutations(remaining);
+                for (let j = 0; j < remainingPermuted.length; j++) {
+                    result.push([current].concat(remainingPermuted[j]));
+                }
+            }
+            return result;
+        }
+        
+        optimizeLineupBtn.addEventListener('click', async () => {
+            if (!collectRosterData() || globalRoster.length === 0) {
+                showMessage("Please add players to the roster with valid stats first.");
+                return;
+            }
+            if (globalRoster.length > MAX_BRUTE_FORCE_OPTIMIZATION_SIZE + 2 && optimizationSimsSelect.value > 1000) {
+                 // Warn if it's going to be very slow for heuristic
+                if (!confirm(`Optimizing a roster of ${globalRoster.length} with many simulations might take a very long time. Continue?`)) {
+                    return;
+                }
+            }
+
+
+            optimizationLoadingIndicator.style.display = 'block';
+            optimizationResultDiv.classList.add('hidden');
+            optimizeLineupBtn.disabled = true;
+            
+            await new Promise(resolve => setTimeout(resolve, 50)); // Allow UI update
+
+            const numSimsForOpt = parseInt(optimizationSimsSelect.value);
+            let bestLineup = [];
+            let bestExpectedRuns = -1;
+
+            const playersToOptimize = [...globalRoster]; // Work with a copy
+
+            if (playersToOptimize.length === 0) {
+                 showMessage("No players to optimize.");
+                 optimizationLoadingIndicator.style.display = 'none';
+                 optimizeLineupBtn.disabled = false;
+                 return;
+            }
+            
+            if (playersToOptimize.length === 1) {
+                bestLineup = playersToOptimize;
+                bestExpectedRuns = await runManySimulations(bestLineup, numSimsForOpt);
+            } else if (playersToOptimize.length <= MAX_BRUTE_FORCE_OPTIMIZATION_SIZE) {
+                // Brute-force for small rosters
+                const permutations = getAllPermutations(playersToOptimize);
+                for (const perm of permutations) {
+                    const avgRuns = await runManySimulations(perm, numSimsForOpt);
+                    if (avgRuns > bestExpectedRuns) {
+                        bestExpectedRuns = avgRuns;
+                        bestLineup = perm;
+                    }
+                }
+            } else {
+                // Heuristic: Hill Climbing / Stochastic Local Search for larger rosters
+                let currentLineup = [...playersToOptimize]; // Start with current order
+                // Shuffle for a random start to potentially find different local optima
+                for (let i = currentLineup.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [currentLineup[i], currentLineup[j]] = [currentLineup[j], currentLineup[i]];
+                }
+
+                bestLineup = [...currentLineup];
+                bestExpectedRuns = await runManySimulations(currentLineup, numSimsForOpt);
+
+                const iterations = Math.min(1000, playersToOptimize.length * playersToOptimize.length * 5); // Limit iterations
+
+                for (let i = 0; i < iterations; i++) {
+                    let tempLineup = [...bestLineup]; // Start from current best
+                    // Make a small change: swap two random players
+                    const idx1 = Math.floor(Math.random() * tempLineup.length);
+                    let idx2 = Math.floor(Math.random() * tempLineup.length);
+                    while (idx1 === idx2 && tempLineup.length > 1) { // Ensure different indices if possible
+                        idx2 = Math.floor(Math.random() * tempLineup.length);
+                    }
+                    [tempLineup[idx1], tempLineup[idx2]] = [tempLineup[idx2], tempLineup[idx1]];
+                    
+                    const tempAvgRuns = await runManySimulations(tempLineup, numSimsForOpt);
+                    if (tempAvgRuns > bestExpectedRuns) {
+                        bestExpectedRuns = tempAvgRuns;
+                        bestLineup = [...tempLineup];
+                    }
+                }
+            }
+
+            optimizedLineupList.innerHTML = '';
+            bestLineup.forEach(player => {
+                const li = document.createElement('li');
+                li.textContent = player.name;
+                optimizedLineupList.appendChild(li);
+            });
+            expectedRunsValue.textContent = bestExpectedRuns.toFixed(3);
+            optimizationResultDiv.classList.remove('hidden');
+            optimizationLoadingIndicator.style.display = 'none';
+            optimizeLineupBtn.disabled = false;
+        });
+
+
+        // --- Initialization ---
+        addPlayerBtn.addEventListener('click', () => addPlayerRow());
+        
+        // Load data on page start
+        document.addEventListener('DOMContentLoaded', () => {
+            loadRosterFromURL(); // This will fall back to localStorage if no URL param
+        });
+
+    </script>
+</body>
+</html>
