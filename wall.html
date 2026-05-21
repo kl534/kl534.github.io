@@ -131,7 +131,7 @@
             ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
             ctx.font = `bold ${Math.max(20, h * 0.04)}px sans-serif`;
             ctx.textAlign = 'center';
-            ctx.fillText("327", w / 4, wallY + (wallH * 0.7));
+            ctx.fillText("327", w / 4, wallY + (wallH * 0.4));
 
             // --- 4. DRAW YELLOW HOME RUN LINE ---
             const lineHeight = Math.max(12, h * 0.015);
@@ -171,14 +171,14 @@
 
         // Event Listeners for the UI
         document.getElementById('btnUp').addEventListener('click', () => {
-            // Max height 85%
-            wallHeightRatio = Math.min(0.85, wallHeightRatio + 0.05); 
+            // Max height 95%
+            wallHeightRatio = Math.min(0.95, wallHeightRatio + 0.05); 
             drawScene();
         });
 
         document.getElementById('btnDown').addEventListener('click', () => {
-            // Min height 20%
-            wallHeightRatio = Math.max(0.20, wallHeightRatio - 0.05); 
+            // Min height 10%
+            wallHeightRatio = Math.max(0.10, wallHeightRatio - 0.05); 
             drawScene();
         });
 
