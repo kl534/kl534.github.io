@@ -76,7 +76,7 @@
         const canvas = document.getElementById('sceneCanvas');
         const ctx = canvas.getContext('2d');
         
-        let wallHeightRatio = 0.35; // Wall takes up 35% of the screen initially
+        let wallHeightRatio = 0.45; // Wall takes up 45% of the screen initially
         let clouds = [];
 
         // Generate procedural volumetric clouds
@@ -178,7 +178,7 @@
             ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
             ctx.font = `bold ${Math.max(20, h * 0.04)}px sans-serif`;
             ctx.textAlign = 'center';
-            ctx.fillText("400", w / 2, wallY + (wallH * 0.3));
+            ctx.fillText("327", w / 4, wallY + (wallH * 0.3));
 
             // --- 4. DRAW YELLOW HOME RUN LINE ---
             const lineHeight = Math.max(12, h * 0.015);
@@ -224,8 +224,8 @@
         });
 
         document.getElementById('btnDown').addEventListener('click', () => {
-            // Min height 10%
-            wallHeightRatio = Math.max(0.10, wallHeightRatio - 0.05); 
+            // Min height 20%
+            wallHeightRatio = Math.max(0.20, wallHeightRatio - 0.05); 
             drawScene();
         });
 
