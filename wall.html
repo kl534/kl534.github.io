@@ -77,28 +77,6 @@
         const ctx = canvas.getContext('2d');
         
         let wallHeightRatio = 0.45; // Wall takes up 45% of the screen initially
-        let clouds = [];
-
-        // Generate procedural volumetric clouds
-        function initClouds() {
-            clouds = [];
-            // Create 20 cloud clusters
-            for(let i = 0; i < 20; i++) {
-                let cx = Math.random(); // Relative X position
-                let cy = Math.random() * 0.6; // Keep in the top 60% of the screen
-                let blobs = [];
-                let numBlobs = 6 + Math.random() * 10;
-                
-                for(let j = 0; j < numBlobs; j++) {
-                    blobs.push({
-                        offsetX: (Math.random() - 0.5) * 0.15,
-                        offsetY: (Math.random() - 0.3) * 0.05,
-                        radius: 0.02 + Math.random() * 0.05
-                    });
-                }
-                clouds.push({ x: cx, y: cy, blobs: blobs });
-            }
-        }
 
         function drawScene() {
             const w = canvas.width;
@@ -115,32 +93,7 @@
             ctx.fillStyle = skyGrad;
             ctx.fillRect(0, 0, w, h);
 
-            // --- 2. DRAW CLOUDS ---
-            clouds.forEach(cloud => {
-                let baseX = cloud.x * w;
-                let baseY = cloud.y * h;
-                
-                cloud.blobs.forEach(blob => {
-                    let bx = baseX + blob.offsetX * w;
-                    let by = baseY + blob.offsetY * h;
-                    let br = blob.radius * Math.max(w, h * 1.5); // Scale radius nicely
-
-                    // Volumetric radial gradient for cloud shading
-                    // Shift the light source slightly up for the inner bright spot
-                    const rgrad = ctx.createRadialGradient(bx, by - br * 0.2, br * 0.1, bx, by, br);
-                    rgrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)'); // Sunlit top/center
-                    rgrad.addColorStop(0.5, 'rgba(245, 248, 250, 0.7)'); // Mid cloud
-                    rgrad.addColorStop(0.8, 'rgba(190, 205, 220, 0.4)'); // Shadowed bottom
-                    rgrad.addColorStop(1, 'rgba(255, 255, 255, 0)');     // Faded edge
-
-                    ctx.fillStyle = rgrad;
-                    ctx.beginPath();
-                    ctx.arc(bx, by, br, 0, Math.PI * 2);
-                    ctx.fill();
-                });
-            });
-
-            // --- 3. DRAW OUTFIELD WALL ---
+            // --- 2. DRAW OUTFIELD WALL ---
             const wallH = h * wallHeightRatio;
             const wallY = h - wallH;
 
