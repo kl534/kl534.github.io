@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Outfield Wall</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #87ceeb; /* Sky blue fallback */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            display: flex;
+            gap: 15px;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 10px 20px;
+            border-radius: 12px;
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        button {
+            padding: 10px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #fff;
+            background: #0a192f;
+            border: 2px solid #ffcc00;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            user-select: none;
+        }
+
+        button:hover {
+            background: #112a4d;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 10px rgba(0, 0, 0, 0.4);
+        }
+
+        button:active {
+            transform: translateY(1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="controls">
+        <button id="btnUp">&#x25B2; Wall Up</button>
+        <button id="btnDown">&#x25BC; Wall Down</button>
+    </div>
+
+    <canvas id="sceneCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('sceneCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let wallHeightRatio = 0.35; // Wall takes up 35% of the screen initially
+        let clouds = [];
+
+        // Generate procedural volumetric clouds
+        function initClouds() {
+            clouds = [];
+            // Create 20 cloud clusters
+            for(let i = 0; i < 20; i++) {
+                let cx = Math.random(); // Relative X position
+                let cy = Math.random() * 0.6; // Keep in the top 60% of the screen
+                let blobs = [];
+                let numBlobs = 6 + Math.random() * 10;
+                
+                for(let j = 0; j < numBlobs; j++) {
+                    blobs.push({
+                        offsetX: (Math.random() - 0.5) * 0.15,
+                        offsetY: (Math.random() - 0.3) * 0.05,
+                        radius: 0.02 + Math.random() * 0.05
+                    });
+                }
+                clouds.push({ x: cx, y: cy, blobs: blobs });
+            }
+        }
+
+        function drawScene() {
+            const w = canvas.width;
+            const h = canvas.height;
+
+            // --- 1. DRAW SKY ---
+            // Realistic atmospheric scattering gradient
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
+            skyGrad.addColorStop(0, '#0c3866');   // Deep altitude blue
+            skyGrad.addColorStop(0.4, '#3b7eb8'); // Mid sky
+            skyGrad.addColorStop(0.8, '#a3d1f0'); // Lower sky
+            skyGrad.addColorStop(1, '#dff1f8');   // Horizon haze
+            
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, w, h);
+
+            // --- 2. DRAW CLOUDS ---
+            clouds.forEach(cloud => {
+                let baseX = cloud.x * w;
+                let baseY = cloud.y * h;
+                
+                cloud.blobs.forEach(blob => {
+                    let bx = baseX + blob.offsetX * w;
+                    let by = baseY + blob.offsetY * h;
+                    let br = blob.radius * Math.max(w, h * 1.5); // Scale radius nicely
+
+                    // Volumetric radial gradient for cloud shading
+                    // Shift the light source slightly up for the inner bright spot
+                    const rgrad = ctx.createRadialGradient(bx, by - br * 0.2, br * 0.1, bx, by, br);
+                    rgrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)'); // Sunlit top/center
+                    rgrad.addColorStop(0.5, 'rgba(245, 248, 250, 0.7)'); // Mid cloud
+                    rgrad.addColorStop(0.8, 'rgba(190, 205, 220, 0.4)'); // Shadowed bottom
+                    rgrad.addColorStop(1, 'rgba(255, 255, 255, 0)');     // Faded edge
+
+                    ctx.fillStyle = rgrad;
+                    ctx.beginPath();
+                    ctx.arc(bx, by, br, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            });
+
+            // --- 3. DRAW OUTFIELD WALL ---
+            const wallH = h * wallHeightRatio;
+            const wallY = h - wallH;
+
+            // Wall base gradient (simulating lighting and material depth)
+            const wallGrad = ctx.createLinearGradient(0, wallY, 0, h);
+            wallGrad.addColorStop(0, '#102542'); // Slightly lighter top
+            wallGrad.addColorStop(0.1, '#0a192f'); // Standard navy
+            wallGrad.addColorStop(1, '#030812'); // Dark shadow at the very bottom
+            
+            ctx.fillStyle = wallGrad;
+            ctx.fillRect(0, wallY, w, wallH);
+
+            // Wall padding seams (Adds realism to the padding)
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 2;
+            const seamSpacing = Math.max(80, w * 0.05); // Responsive spacing
+            
+            for(let x = (w / 2) % seamSpacing; x < w; x += seamSpacing) {
+                // Highlight side of seam
+                ctx.beginPath();
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+                ctx.moveTo(x - 1, wallY);
+                ctx.lineTo(x - 1, h);
+                ctx.stroke();
+
+                // Dark side of seam
+                ctx.beginPath();
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+                ctx.moveTo(x, wallY);
+                ctx.lineTo(x, h);
+                ctx.stroke();
+            }
+
+            // Center distance marker (e.g., "400")
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.font = `bold ${Math.max(20, h * 0.04)}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.fillText("400", w / 2, wallY + (wallH * 0.3));
+
+            // --- 4. DRAW YELLOW HOME RUN LINE ---
+            const lineHeight = Math.max(12, h * 0.015);
+            
+            // Complex gradient for 3D cylindrical/padded look on the yellow line
+            const yellowGrad = ctx.createLinearGradient(0, wallY, 0, wallY + lineHeight);
+            yellowGrad.addColorStop(0, '#fff5b0');   // Sun glare top edge
+            yellowGrad.addColorStop(0.2, '#ffcc00'); // Base yellow
+            yellowGrad.addColorStop(0.7, '#e6b800'); // Mid shadow
+            yellowGrad.addColorStop(1, '#997a00');   // Bottom shadow
+            
+            ctx.fillStyle = yellowGrad;
+            ctx.fillRect(0, wallY, w, lineHeight);
+
+            // Drop shadow right under the yellow line
+            const shadowGrad = ctx.createLinearGradient(0, wallY + lineHeight, 0, wallY + lineHeight + 10);
+            shadowGrad.addColorStop(0, 'rgba(0,0,0,0.6)');
+            shadowGrad.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = shadowGrad;
+            ctx.fillRect(0, wallY + lineHeight, w, 10);
+        }
+
+        // Handle resizing dynamically
+        function resize() {
+            // Adjust canvas for high DPI displays (Retina screens)
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = window.innerWidth * dpr;
+            canvas.height = window.innerHeight * dpr;
+            ctx.scale(dpr, dpr);
+            
+            // Adjust CSS size to match window
+            canvas.style.width = `${window.innerWidth}px`;
+            canvas.style.height = `${window.innerHeight}px`;
+
+            drawScene();
+        }
+
+        // Event Listeners for the UI
+        document.getElementById('btnUp').addEventListener('click', () => {
+            // Max height 85%
+            wallHeightRatio = Math.min(0.85, wallHeightRatio + 0.05); 
+            drawScene();
+        });
+
+        document.getElementById('btnDown').addEventListener('click', () => {
+            // Min height 10%
+            wallHeightRatio = Math.max(0.10, wallHeightRatio - 0.05); 
+            drawScene();
+        });
+
+        window.addEventListener('resize', resize);
+
+        // Initialize and draw
+        initClouds();
+        resize();
+    </script>
+</body>
+</html>
